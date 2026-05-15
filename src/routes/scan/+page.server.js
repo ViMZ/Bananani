@@ -1,0 +1,36 @@
+import { fail, redirect } from '@sveltejs/kit';
+import { getRecipeByCode } from '$lib/server/recipes';
+import { db } from '$lib/server/db';
+import { shoppingItems } from '$lib/server/db/schema';
+
+export const actions = {
+  add: async ({ request }) => {
+    const formData = await request.formData();
+    const code = String(formData.get('code') ?? '').trim().toUpperCase();
+    if (!code) return fail(400, { error: 'Code manquant' });
+
+    const data = await getRecipeByCode(code);
+    if (!data) return fail(404, { error: `Aucune recette trouvée pour le code « ${code} »`, code });
+
+    const { recipe, ingredients } = data;
+    if (ingredients.length === 0) {
+      return { added: 0, recipeTitle: recipe.title, code: recipe.code, empty: true };
+    }
+
+    await db.insert(shoppingItems).values(
+      ingredients.map((i) => ({
+        recipeId: recipe.id,
+        recipeTitle: recipe.title,
+        name: i.name,
+        brand: i.brand,
+        productReference: i.productReference,
+        quantity: i.quantity,
+        unit: i.unit,
+        notes: i.notes,
+        checked: false
+      }))
+    );
+
+    return { added: ingredients.length, recipeTitle: recipe.title, code: recipe.code };
+  }
+};

@@ -1,0 +1,41 @@
+import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+
+export const recipes = sqliteTable('recipes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  code: text('code').notNull().unique(),
+  title: text('title').notNull(),
+  description: text('description').default(''),
+  servings: integer('servings').default(2),
+  instructions: text('instructions').default(''),
+  photoPath: text('photo_path'),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull()
+});
+
+export const recipeIngredients = sqliteTable('recipe_ingredients', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  recipeId: integer('recipe_id')
+    .notNull()
+    .references(() => recipes.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  brand: text('brand').default(''),
+  productReference: text('product_reference').default(''),
+  quantity: real('quantity').default(0),
+  unit: text('unit').default(''),
+  notes: text('notes').default(''),
+  position: integer('position').default(0)
+});
+
+export const shoppingItems = sqliteTable('shopping_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  recipeId: integer('recipe_id').references(() => recipes.id, { onDelete: 'set null' }),
+  recipeTitle: text('recipe_title').default(''),
+  name: text('name').notNull(),
+  brand: text('brand').default(''),
+  productReference: text('product_reference').default(''),
+  quantity: real('quantity').default(0),
+  unit: text('unit').default(''),
+  notes: text('notes').default(''),
+  checked: integer('checked', { mode: 'boolean' }).default(false),
+  addedAt: text('added_at').default(sql`(CURRENT_TIMESTAMP)`).notNull()
+});
