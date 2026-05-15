@@ -1,6 +1,7 @@
 <script>
   import { onDestroy } from 'svelte';
   import { enhance } from '$app/forms';
+  import { deserialize } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import Sprig from '$lib/components/Sprig.svelte';
 
@@ -9,49 +10,50 @@
   let videoEl;
   let scanning = $state(false);
   let cameraError = $state('');
-  let lastResult = $state('');
   let frames = $state(0);
-  let lastSeen = $state('');
   let reader = null;
   let controls = null;
 
   let manualCode = $state('');
   let recentScans = $state([]);
+  /** @type {Set<string>} codes déjà soumis pendant la session caméra en cours */
+  let sessionCodes = new Set();
+
+  /** Feedback visuel après scan caméra réussi (le `form` prop ne se met à jour qu'au form submit, pas au fetch) */
+  let scanFeedback = $state(/** @type {null | { kind: 'ok' | 'empty' | 'error', recipeTitle?: string, added?: number, code?: string, message?: string }} */ (null));
+  let feedbackTimeout = null;
 
   async function startCamera() {
     cameraError = '';
+    scanFeedback = null;
     scanning = true;
     frames = 0;
-    lastSeen = '';
+    sessionCodes = new Set();
     try {
       const { BrowserMultiFormatReader } = await import('@zxing/browser');
       const { BarcodeFormat, DecodeHintType } = await import('@zxing/library');
 
-      // Forcer la détection QR uniquement → plus rapide et plus fiable
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
       hints.set(DecodeHintType.TRY_HARDER, true);
 
       reader = new BrowserMultiFormatReader(hints);
 
-      // Caméra arrière explicite (ideal = soft hint, fallback OK sur desktop)
       const constraints = {
         audio: false,
         video: { facingMode: { ideal: 'environment' } }
       };
 
-      controls = await reader.decodeFromConstraints(constraints, videoEl, (result, err) => {
+      controls = await reader.decodeFromConstraints(constraints, videoEl, (result /*, err */) => {
         frames++;
+        // Les erreurs par frame sont normales (NotFoundException = pas de QR dans la frame).
+        // Les vraies pannes caméra arrivent dans le try/catch externe, pas ici.
         if (result) {
           const text = result.getText();
-          lastSeen = text;
-          if (text && text !== lastResult) {
-            lastResult = text;
+          if (text && !sessionCodes.has(text)) {
+            sessionCodes.add(text);
             submitCode(text);
           }
-        } else if (err && err.name !== 'NotFoundException') {
-          // NotFoundException = pas de QR dans la frame, normal. Le reste = vrai pb.
-          cameraError = err.message || String(err);
         }
       });
     } catch (err) {
@@ -66,18 +68,53 @@
       controls = null;
     }
     scanning = false;
+    sessionCodes = new Set();
+  }
+
+  function setFeedback(value) {
+    scanFeedback = value;
+    if (feedbackTimeout) clearTimeout(feedbackTimeout);
+    if (value) {
+      feedbackTimeout = setTimeout(() => (scanFeedback = null), 4000);
+    }
   }
 
   async function submitCode(code) {
-    const fd = new FormData();
-    fd.append('code', code);
-    await fetch('?/add', { method: 'POST', body: fd });
-    await invalidateAll();
-    recentScans = [{ code, time: new Date().toLocaleTimeString() }, ...recentScans].slice(0, 10);
-    setTimeout(() => (lastResult = ''), 1500);
+    try {
+      const fd = new FormData();
+      fd.append('code', code);
+      const res = await fetch('?/add', { method: 'POST', body: fd });
+      const parsed = deserialize(await res.text());
+
+      if (parsed.type === 'success' && parsed.data) {
+        const data = /** @type {any} */ (parsed.data);
+        setFeedback({
+          kind: data.empty ? 'empty' : 'ok',
+          recipeTitle: data.recipeTitle,
+          added: data.added,
+          code: data.code ?? code
+        });
+        recentScans = [
+          { code, time: new Date().toLocaleTimeString(), recipeTitle: data.recipeTitle },
+          ...recentScans
+        ].slice(0, 10);
+      } else if (parsed.type === 'failure' && parsed.data) {
+        const data = /** @type {any} */ (parsed.data);
+        setFeedback({ kind: 'error', message: data.error ?? 'Code inconnu', code });
+      } else {
+        setFeedback({ kind: 'error', message: 'Réponse inattendue du serveur', code });
+      }
+
+      await invalidateAll();
+    } catch (e) {
+      setFeedback({ kind: 'error', message: e instanceof Error ? e.message : 'Erreur réseau', code });
+    }
   }
 
-  onDestroy(stopCamera);
+  onDestroy(() => {
+    stopCamera();
+    if (feedbackTimeout) clearTimeout(feedbackTimeout);
+  });
 </script>
 
 <header class="text-center mb-12">
@@ -147,6 +184,29 @@
         <button class="btn-secondary flex-1" onclick={stopCamera}>■ Arrêter</button>
       {/if}
     </div>
+
+    <!-- Feedback du dernier scan caméra -->
+    {#if scanFeedback}
+      {#if scanFeedback.kind === 'ok'}
+        <div class="mt-4 p-3 rounded bg-oliva-soft/50 border border-oliva/30 text-sm animate-fade-in">
+          <span class="font-display italic text-oliva text-base">Bene !</span>
+          <span class="text-umber">
+            {scanFeedback.added} ingrédient{scanFeedback.added > 1 ? 's' : ''} de
+            <span class="font-medium">« {scanFeedback.recipeTitle} »</span> ajouté{scanFeedback.added > 1 ? 's' : ''}.
+          </span>
+        </div>
+      {:else if scanFeedback.kind === 'empty'}
+        <div class="mt-4 p-3 rounded bg-limone-soft/40 border border-limone/40 text-sm italic animate-fade-in">
+          « {scanFeedback.recipeTitle} » : aucune ingrédient à ajouter.
+        </div>
+      {:else}
+        <div class="mt-4 p-3 rounded bg-terra-soft/60 border border-terra/30 text-sm italic animate-fade-in">
+          Errore : {scanFeedback.message}
+          {#if scanFeedback.code}<span class="font-mono not-italic"> ({scanFeedback.code})</span>{/if}
+        </div>
+      {/if}
+    {/if}
+
     <p class="text-xs italic text-sepia mt-3">
       Autoriser l'accès caméra · sur mobile, HTTPS recommandé.
     </p>
@@ -207,12 +267,15 @@
       <span class="flex-1 h-px bg-umber/15"></span>
       <span class="h-eyebrow">{recentScans.length}</span>
     </div>
-    <ul class="space-y-1 font-mono text-xs">
+    <ul class="space-y-1 text-xs">
       {#each recentScans as s}
         <li class="flex items-center gap-4 py-2 border-b border-umber/10">
-          <span class="text-sepia w-20">{s.time}</span>
-          <span class="text-mare">→</span>
-          <span class="font-medium text-umber">{s.code}</span>
+          <span class="font-mono text-sepia w-20">{s.time}</span>
+          <span class="text-mare font-mono">→</span>
+          <span class="font-mono font-medium text-umber w-28">{s.code}</span>
+          {#if s.recipeTitle}
+            <span class="font-sans italic text-sepia">{s.recipeTitle}</span>
+          {/if}
         </li>
       {/each}
     </ul>
