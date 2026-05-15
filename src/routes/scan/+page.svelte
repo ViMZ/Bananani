@@ -1,7 +1,8 @@
 <script>
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import Sprig from '$lib/components/Sprig.svelte';
 
   let { form } = $props();
 
@@ -9,7 +10,6 @@
   let scanning = $state(false);
   let cameraError = $state('');
   let lastResult = $state('');
-  /** @type {import('@zxing/browser').BrowserMultiFormatReader | null} */
   let reader = null;
   let controls = null;
 
@@ -48,55 +48,91 @@
   async function submitCode(code) {
     const fd = new FormData();
     fd.append('code', code);
-    const res = await fetch('?/add', { method: 'POST', body: fd });
-    const result = await res.json();
-    const payload = result?.data ? JSON.parse(result.data) : null;
-    // SvelteKit serializes action results — easier to just refresh
+    await fetch('?/add', { method: 'POST', body: fd });
     await invalidateAll();
     recentScans = [{ code, time: new Date().toLocaleTimeString() }, ...recentScans].slice(0, 10);
-    // Allow re-scanning the same code after a small delay
     setTimeout(() => (lastResult = ''), 1500);
   }
 
   onDestroy(stopCamera);
 </script>
 
-<h1 class="text-2xl font-display font-bold mb-4">Scanner une fiche</h1>
+<header class="text-center mb-12">
+  <div class="h-eyebrow mb-2">Capture</div>
+  <h1 class="h-display text-5xl md:text-6xl italic">Scansiona</h1>
+  <p class="text-sepia italic mt-2">
+    Pointe la caméra sur une fiche, ou tape le code BAN-XXXXXX
+  </p>
+  <div class="flex justify-center mt-4">
+    <Sprig width={120} />
+  </div>
+</header>
 
-<div class="grid md:grid-cols-2 gap-6">
+<div class="grid lg:grid-cols-[3fr_2fr] gap-8">
+  <!-- Viewport caméra -->
   <section class="card">
-    <h2 class="font-display font-bold mb-3">📷 Caméra</h2>
+    <div class="flex items-center justify-between mb-4">
+      <div class="h-eyebrow">— La macchina fotografica</div>
+      <span class="font-mono text-[10px] uppercase tracking-wider text-sepia flex items-center gap-1.5">
+        <span class="inline-block w-1.5 h-1.5 rounded-full {scanning ? 'bg-oliva' : 'bg-umber/20'}"></span>
+        {scanning ? 'live' : 'inactive'}
+      </span>
+    </div>
 
     {#if cameraError}
-      <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 mb-3 text-sm">
-        ⚠️ {cameraError}
+      <div class="bg-terra-soft/50 border border-terra/30 rounded p-3 mb-4 text-sm italic text-umber">
+        Errore : {cameraError}
       </div>
     {/if}
 
-    <div class="relative bg-stone-900 rounded-lg overflow-hidden aspect-video mb-3">
+    <!-- Viewport avec brackets -->
+    <div class="relative bg-umber rounded overflow-hidden aspect-video">
       <video bind:this={videoEl} class="w-full h-full object-cover" muted autoplay playsinline></video>
+
       {#if !scanning}
-        <div class="absolute inset-0 flex items-center justify-center text-stone-400 text-sm">
-          Caméra inactive
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="text-center">
+            <div class="font-display italic text-panna text-4xl">spento</div>
+            <div class="h-eyebrow text-panna/60 mt-1">caméra inactive</div>
+          </div>
         </div>
+      {/if}
+
+      <!-- Brackets coins (limone) -->
+      <svg class="absolute top-3 left-3 w-7 h-7 pointer-events-none" viewBox="0 0 32 32" fill="none" stroke="#E5B947" stroke-width="2" stroke-linecap="round">
+        <path d="M2 12 L2 2 L12 2" />
+      </svg>
+      <svg class="absolute top-3 right-3 w-7 h-7 pointer-events-none" viewBox="0 0 32 32" fill="none" stroke="#E5B947" stroke-width="2" stroke-linecap="round">
+        <path d="M20 2 L30 2 L30 12" />
+      </svg>
+      <svg class="absolute bottom-3 left-3 w-7 h-7 pointer-events-none" viewBox="0 0 32 32" fill="none" stroke="#E5B947" stroke-width="2" stroke-linecap="round">
+        <path d="M2 20 L2 30 L12 30" />
+      </svg>
+      <svg class="absolute bottom-3 right-3 w-7 h-7 pointer-events-none" viewBox="0 0 32 32" fill="none" stroke="#E5B947" stroke-width="2" stroke-linecap="round">
+        <path d="M30 20 L30 30 L20 30" />
+      </svg>
+
+      {#if scanning}
+        <div class="absolute inset-x-6 top-0 h-[2px] bg-limone shadow-[0_0_8px_#E5B947] animate-scanline pointer-events-none"></div>
       {/if}
     </div>
 
-    <div class="flex gap-2">
+    <div class="flex gap-2 mt-4">
       {#if !scanning}
-        <button class="btn-primary flex-1" onclick={startCamera}>Démarrer la caméra</button>
+        <button class="btn-primary flex-1" onclick={startCamera}>▶ Démarrer la caméra</button>
       {:else}
-        <button class="btn-secondary flex-1" onclick={stopCamera}>Arrêter</button>
+        <button class="btn-secondary flex-1" onclick={stopCamera}>■ Arrêter</button>
       {/if}
     </div>
-    <p class="text-xs text-stone-500 mt-2">
-      Astuce : sur ordinateur le navigateur demandera l'autorisation caméra. Sur téléphone, ça marche
-      mieux en HTTPS.
+    <p class="text-xs italic text-sepia mt-3">
+      Autoriser l'accès caméra · sur mobile, HTTPS recommandé.
     </p>
   </section>
 
-  <section class="card">
-    <h2 class="font-display font-bold mb-3">⌨️ Saisie manuelle</h2>
+  <!-- Saisie manuelle -->
+  <section class="card-sand">
+    <div class="h-eyebrow mb-4">— A mano</div>
+
     <form
       method="POST"
       action="?/add"
@@ -107,45 +143,59 @@
         };
       }}
     >
+      <label class="label" for="code-input">Code de la fiche</label>
       <input
-        class="input mb-3 font-mono uppercase"
+        id="code-input"
+        class="input mb-4 font-mono uppercase text-lg tracking-widest text-center"
         name="code"
-        placeholder="BAN-XXXXXX"
+        placeholder="BAN-______"
         bind:value={manualCode}
         required
+        autocomplete="off"
       />
-      <button class="btn-primary w-full">Ajouter aux courses</button>
+      <button class="btn-primary w-full">Ajouter aux courses →</button>
     </form>
 
     {#if form?.error}
-      <div class="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
-        ⚠️ {form.error}
+      <div class="mt-4 p-3 rounded bg-terra-soft/60 border border-terra/30 text-sm italic animate-fade-in">
+        Errore : {form.error}
       </div>
     {/if}
     {#if form?.added > 0}
-      <div class="mt-3 text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-2">
-        ✅ {form.added} ingrédient{form.added > 1 ? 's' : ''} de « {form.recipeTitle} » ajouté{form.added > 1 ? 's' : ''}.
+      <div class="mt-4 p-3 rounded bg-oliva-soft/50 border border-oliva/30 text-sm animate-fade-in">
+        <span class="font-display italic text-oliva text-base">Bene !</span>
+        <span class="text-umber">
+          {form.added} ingrédient{form.added > 1 ? 's' : ''} de « {form.recipeTitle} » ajouté{form.added > 1 ? 's' : ''}.
+        </span>
       </div>
     {/if}
     {#if form?.empty}
-      <div class="mt-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">
-        ℹ️ Recette « {form.recipeTitle} » sans ingrédient.
+      <div class="mt-4 p-3 rounded bg-limone-soft/40 border border-limone/40 text-sm italic">
+        « {form.recipeTitle} » sans ingrédient.
       </div>
     {/if}
   </section>
 </div>
 
 {#if recentScans.length > 0}
-  <section class="card mt-6">
-    <h2 class="font-display font-bold mb-2">Scans récents</h2>
-    <ul class="text-sm space-y-1 font-mono">
+  <section class="mt-12">
+    <div class="flex items-baseline gap-4 mb-4">
+      <h2 class="h-display italic text-2xl text-sepia">Scansioni recenti</h2>
+      <span class="flex-1 h-px bg-umber/15"></span>
+      <span class="h-eyebrow">{recentScans.length}</span>
+    </div>
+    <ul class="space-y-1 font-mono text-xs">
       {#each recentScans as s}
-        <li>{s.time} — {s.code}</li>
+        <li class="flex items-center gap-4 py-2 border-b border-umber/10">
+          <span class="text-sepia w-20">{s.time}</span>
+          <span class="text-mare">→</span>
+          <span class="font-medium text-umber">{s.code}</span>
+        </li>
       {/each}
     </ul>
   </section>
 {/if}
 
-<div class="mt-6">
-  <a href="/shopping" class="btn-secondary">Voir la liste de courses →</a>
+<div class="mt-12 text-center no-print">
+  <a href="/shopping" class="link">Voir la liste de courses →</a>
 </div>
