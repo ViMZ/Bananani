@@ -10,6 +10,8 @@
   let scanning = $state(false);
   let cameraError = $state('');
   let lastResult = $state('');
+  let frames = $state(0);
+  let lastSeen = $state('');
   let reader = null;
   let controls = null;
 
@@ -19,16 +21,37 @@
   async function startCamera() {
     cameraError = '';
     scanning = true;
+    frames = 0;
+    lastSeen = '';
     try {
       const { BrowserMultiFormatReader } = await import('@zxing/browser');
-      reader = new BrowserMultiFormatReader();
-      controls = await reader.decodeFromVideoDevice(undefined, videoEl, (result) => {
+      const { BarcodeFormat, DecodeHintType } = await import('@zxing/library');
+
+      // Forcer la détection QR uniquement → plus rapide et plus fiable
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+
+      reader = new BrowserMultiFormatReader(hints);
+
+      // Caméra arrière explicite (ideal = soft hint, fallback OK sur desktop)
+      const constraints = {
+        audio: false,
+        video: { facingMode: { ideal: 'environment' } }
+      };
+
+      controls = await reader.decodeFromConstraints(constraints, videoEl, (result, err) => {
+        frames++;
         if (result) {
           const text = result.getText();
+          lastSeen = text;
           if (text && text !== lastResult) {
             lastResult = text;
             submitCode(text);
           }
+        } else if (err && err.name !== 'NotFoundException') {
+          // NotFoundException = pas de QR dans la frame, normal. Le reste = vrai pb.
+          cameraError = err.message || String(err);
         }
       });
     } catch (err) {
@@ -75,7 +98,7 @@
       <div class="h-eyebrow">— La macchina fotografica</div>
       <span class="font-mono text-[10px] uppercase tracking-wider text-sepia flex items-center gap-1.5">
         <span class="inline-block w-1.5 h-1.5 rounded-full {scanning ? 'bg-oliva' : 'bg-umber/20'}"></span>
-        {scanning ? 'live' : 'inactive'}
+        {scanning ? `live · ${frames} frames` : 'inactive'}
       </span>
     </div>
 

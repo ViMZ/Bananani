@@ -3,19 +3,26 @@
   import QRCode from 'qrcode';
 
   /**
-   * Composant "code scannable" : génère un QR Code SVG pour `value`.
-   * Le nom du fichier reste Barcode.svelte pour la rétrocompat des imports.
+   * Composant "code scannable" : affiche un QR Code SVG.
+   * Si `svg` est fourni (SVG string pré-rendu côté serveur), l'utilise directement.
+   * Sinon, génère côté client à partir de `value`.
+   * Le fichier reste Barcode.svelte pour rétrocompat des imports.
    */
   let {
     value,
+    svg = '',
     size = 140,
     margin = 1,
     errorCorrection = 'M'
   } = $props();
 
-  let svgHtml = $state('');
+  let svgHtml = $state(svg);
 
   async function render() {
+    if (svg) {
+      svgHtml = svg;
+      return;
+    }
     if (!value) {
       svgHtml = '';
       return;
@@ -36,8 +43,8 @@
   onMount(render);
 
   $effect(() => {
-    // re-render quand value/size/margin changent
     value;
+    svg;
     size;
     margin;
     tick().then(render);
