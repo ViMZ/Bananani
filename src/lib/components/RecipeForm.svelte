@@ -13,7 +13,7 @@
   );
 
   function addIngredient() {
-    items = [...items, { name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '' }];
+    items = [{ name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '' }, ...items];
   }
 
   function removeIngredient(idx) {
