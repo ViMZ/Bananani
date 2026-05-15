@@ -1,8 +1,13 @@
 <script>
   import RecipeForm from '$lib/components/RecipeForm.svelte';
   import Sprig from '$lib/components/Sprig.svelte';
+  import BackLink from '$lib/components/BackLink.svelte';
   let { form } = $props();
 </script>
+
+<div class="mb-6">
+  <BackLink href="/recipes" label="Retour au ricettario" />
+</div>
 
 <header class="text-center mb-12">
   <div class="h-eyebrow mb-2">Nuova ricetta</div>

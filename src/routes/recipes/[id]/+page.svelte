@@ -1,6 +1,7 @@
 <script>
   import Sprig from '$lib/components/Sprig.svelte';
   import Ornament from '$lib/components/Ornament.svelte';
+  import BackLink from '$lib/components/BackLink.svelte';
 
   let { data } = $props();
   let { recipe, ingredients } = $derived(data);
@@ -13,6 +14,10 @@
     return romanNumerals[n - 1] || String(n);
   }
 </script>
+
+<div class="mb-6">
+  <BackLink href="/recipes" label="Retour au ricettario" />
+</div>
 
 <!-- Header éditorial -->
 <header class="mb-10 text-center">

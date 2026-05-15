@@ -1,7 +1,12 @@
 <script>
   import RecipeForm from '$lib/components/RecipeForm.svelte';
+  import BackLink from '$lib/components/BackLink.svelte';
   let { data, form } = $props();
 </script>
+
+<div class="mb-6">
+  <BackLink href="/recipes/{data.recipe.id}" label="Retour à la recette" />
+</div>
 
 <header class="text-center mb-12">
   <div class="h-eyebrow mb-2">Modifica · <span class="codice">{data.recipe.code}</span></div>
