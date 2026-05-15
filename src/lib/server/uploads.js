@@ -2,7 +2,8 @@ import { existsSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
-const UPLOAD_DIR = 'static/uploads';
+const DATA_DIR = process.env.DATA_DIR ?? './data';
+export const UPLOAD_DIR = join(DATA_DIR, 'uploads');
 
 if (!existsSync(UPLOAD_DIR)) {
   mkdirSync(UPLOAD_DIR, { recursive: true });

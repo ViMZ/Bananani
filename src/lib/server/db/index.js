@@ -1,10 +1,11 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { existsSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import * as schema from './schema.js';
 
-const DB_PATH = './data/bananani.db';
+const DATA_DIR = process.env.DATA_DIR ?? './data';
+const DB_PATH = join(DATA_DIR, 'bananani.db');
 
 if (!existsSync(dirname(DB_PATH))) {
   mkdirSync(dirname(DB_PATH), { recursive: true });

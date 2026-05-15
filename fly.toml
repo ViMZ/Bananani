@@ -1,0 +1,27 @@
+app = "bananani"
+primary_region = "cdg"
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+DATA_DIR = "/data"
+PORT = "8080"
+HOST = "0.0.0.0"
+
+[[mounts]]
+source = "bananani_data"
+destination = "/data"
+
+[http_service]
+internal_port = 8080
+force_https = true
+auto_stop_machines = "stop"
+auto_start_machines = true
+min_machines_running = 0
+processes = ["app"]
+
+[[vm]]
+cpu_kind = "shared"
+cpus = 1
+memory_mb = 256

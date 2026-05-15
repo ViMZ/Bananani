@@ -8,11 +8,9 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Local DB & uploads
-/data/*.db
-/data/*.db-journal
-/data/*.db-shm
-/data/*.db-wal
+# Local DB & uploads (DATA_DIR par défaut)
+/data/
+/data-prod-test/
 /static/uploads/*
 !/static/uploads/.gitkeep
 
