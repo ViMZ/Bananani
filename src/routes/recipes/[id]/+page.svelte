@@ -1,59 +1,104 @@
 <script>
+  import Sprig from '$lib/components/Sprig.svelte';
+  import Ornament from '$lib/components/Ornament.svelte';
+
   let { data } = $props();
   let { recipe, ingredients } = $derived(data);
 
   let confirmDelete = $state(false);
+
+  const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+    'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+  function roman(n) {
+    return romanNumerals[n - 1] || String(n);
+  }
 </script>
 
-<div class="flex items-start justify-between gap-4 mb-4 flex-wrap">
-  <div>
-    <h1 class="text-3xl font-display font-bold">{recipe.title}</h1>
-    {#if recipe.description}
-      <p class="text-stone-600 mt-1">{recipe.description}</p>
-    {/if}
-    <div class="text-xs text-stone-500 mt-2 font-mono">Code : {recipe.code}</div>
+<!-- Header éditorial -->
+<header class="mb-10 text-center">
+  <div class="h-eyebrow mb-3">Ricetta · <span class="codice text-sepia">{recipe.code}</span></div>
+
+  <h1 class="h-display text-4xl sm:text-5xl md:text-7xl italic text-balance max-w-3xl mx-auto leading-[1]">
+    {recipe.title}
+  </h1>
+
+  {#if recipe.description}
+    <p class="mt-4 font-sans text-base text-sepia italic max-w-xl mx-auto">{recipe.description}</p>
+  {/if}
+
+  <div class="flex justify-center mt-6">
+    <Sprig width={120} />
   </div>
-  <div class="flex flex-wrap gap-2">
-    <a href="/recipes/{recipe.id}/card" class="btn-secondary">🏷️ Fiche imprimable</a>
-    <a href="/recipes/{recipe.id}/edit" class="btn-secondary">✏️ Modifier</a>
-    <form method="POST" action="?/addToShopping">
-      <button class="btn-primary">🛒 Ajouter aux courses</button>
-    </form>
-  </div>
+</header>
+
+<!-- Actions -->
+<div class="flex flex-wrap gap-2 justify-center mb-12 no-print">
+  <form method="POST" action="?/addToShopping">
+    <button class="btn-primary">＋ Ajouter aux courses</button>
+  </form>
+  <a href="/recipes/{recipe.id}/card" class="btn-lemon">🍋 Fiche imprimable</a>
+  <a href="/recipes/{recipe.id}/edit" class="btn-secondary">Modifier</a>
 </div>
 
-<div class="grid md:grid-cols-[1fr_2fr] gap-6">
-  <div>
+<!-- Contenu deux colonnes -->
+<div class="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-10 md:gap-14">
+  <aside class="md:sticky md:top-28 self-start space-y-6">
     {#if recipe.photoPath}
-      <img src={recipe.photoPath} alt={recipe.title} class="w-full rounded-xl shadow-sm object-cover aspect-square" />
+      <div class="bg-panna p-3 rounded-card shadow-soft-lg border border-umber/15">
+        <img src={recipe.photoPath} alt={recipe.title} class="w-full aspect-square object-cover rounded" />
+      </div>
     {:else}
-      <div class="w-full rounded-xl bg-stone-100 aspect-square flex items-center justify-center text-7xl">🍽️</div>
+      <div class="bg-sand p-3 rounded-card shadow-soft-lg border border-umber/15">
+        <div class="w-full aspect-square bg-linen flex items-center justify-center rounded">
+          <span class="font-display italic text-7xl text-sepia">N°</span>
+        </div>
+      </div>
     {/if}
-    <div class="mt-3 text-sm text-stone-600 text-center">
-      Pour {recipe.servings} personne{recipe.servings > 1 ? 's' : ''}
-    </div>
-  </div>
 
-  <div class="space-y-6">
-    <section class="card">
-      <h2 class="text-lg font-display font-bold mb-3">Ingrédients</h2>
+    <!-- Meta cards -->
+    <div class="grid grid-cols-2 gap-3">
+      <div class="card-flat text-center py-4">
+        <div class="h-eyebrow">Persone</div>
+        <div class="font-display text-3xl text-mare mt-1">{recipe.servings}</div>
+      </div>
+      <div class="card-flat text-center py-4">
+        <div class="h-eyebrow">Ingr.</div>
+        <div class="font-display text-3xl text-mare mt-1">{ingredients.length}</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Colonne contenu -->
+  <div class="space-y-12">
+    <section>
+      <div class="flex items-baseline gap-4 mb-6">
+        <h2 class="h-display text-3xl italic text-umber">Gli ingredienti</h2>
+        <span class="flex-1 h-px bg-umber/15"></span>
+        <span class="h-eyebrow">{ingredients.length}</span>
+      </div>
+
       {#if ingredients.length === 0}
-        <p class="text-stone-500 italic">Aucun ingrédient.</p>
+        <p class="text-sepia italic">Niente — pas encore d'ingrédient.</p>
       {:else}
-        <ul class="space-y-2">
-          {#each ingredients as i}
-            <li class="flex flex-wrap items-baseline gap-2 border-b border-stone-100 pb-2 last:border-0">
-              <span class="font-medium">{i.name}</span>
+        <ul class="space-y-4">
+          {#each ingredients as i, idx}
+            <li class="grid grid-cols-[32px_1fr_auto] gap-4 items-baseline pb-4 border-b border-umber/10 last:border-0">
+              <span class="font-display italic text-mare text-lg">{roman(idx + 1)}</span>
+              <div>
+                <span class="font-sans text-base font-medium">{i.name}</span>
+                {#if i.brand || i.productReference}
+                  <div class="font-mono text-[11px] uppercase tracking-wider text-sepia mt-0.5">
+                    {[i.brand, i.productReference].filter(Boolean).join(' · ')}
+                  </div>
+                {/if}
+                {#if i.notes}
+                  <div class="text-sm text-sepia italic mt-0.5">{i.notes}</div>
+                {/if}
+              </div>
               {#if i.quantity}
-                <span class="text-stone-600">— {i.quantity} {i.unit}</span>
-              {/if}
-              {#if i.brand || i.productReference}
-                <span class="text-xs text-stone-500">
-                  ({[i.brand, i.productReference].filter(Boolean).join(' · ')})
+                <span class="font-display text-lg text-umber whitespace-nowrap">
+                  {i.quantity} <span class="text-sepia text-sm font-sans">{i.unit}</span>
                 </span>
-              {/if}
-              {#if i.notes}
-                <div class="w-full text-xs text-stone-500 italic">{i.notes}</div>
               {/if}
             </li>
           {/each}
@@ -62,22 +107,33 @@
     </section>
 
     {#if recipe.instructions}
-      <section class="card">
-        <h2 class="text-lg font-display font-bold mb-3">Instructions</h2>
-        <div class="whitespace-pre-wrap text-stone-800">{recipe.instructions}</div>
+      <section>
+        <Ornament glyph="✦" tone="terra" />
+        <div class="flex items-baseline gap-4 mb-6">
+          <h2 class="h-display text-3xl italic text-umber">La preparazione</h2>
+          <span class="flex-1 h-px bg-umber/15"></span>
+        </div>
+        <div class="font-sans whitespace-pre-wrap leading-relaxed text-[15px] text-umber/90">{recipe.instructions}</div>
       </section>
     {/if}
 
-    <section class="card border-red-100">
+    <section class="no-print pt-8">
+      <Ornament glyph="✕" tone="terra" />
       {#if !confirmDelete}
-        <button class="btn-danger" onclick={() => (confirmDelete = true)}>🗑️ Supprimer la recette</button>
+        <div class="text-center">
+          <button class="btn-ghost text-terra hover:bg-terra/10" onclick={() => (confirmDelete = true)}>
+            Supprimer la recette
+          </button>
+        </div>
       {:else}
-        <p class="mb-3 text-stone-700">Confirmer la suppression définitive ?</p>
-        <div class="flex gap-2">
-          <form method="POST" action="?/delete">
-            <button class="btn-danger">Oui, supprimer</button>
-          </form>
-          <button class="btn-secondary" onclick={() => (confirmDelete = false)}>Annuler</button>
+        <div class="card-flat bg-terra-soft/40 text-center max-w-md mx-auto">
+          <p class="font-display italic text-lg text-umber mb-4">Supprimer définitivement ?</p>
+          <div class="flex gap-2 justify-center">
+            <form method="POST" action="?/delete">
+              <button class="btn-danger">Oui, supprimer</button>
+            </form>
+            <button class="btn-secondary" onclick={() => (confirmDelete = false)}>Annuler</button>
+          </div>
         </div>
       {/if}
     </section>

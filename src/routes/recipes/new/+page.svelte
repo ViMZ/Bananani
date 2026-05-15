@@ -1,12 +1,23 @@
 <script>
   import RecipeForm from '$lib/components/RecipeForm.svelte';
+  import Sprig from '$lib/components/Sprig.svelte';
   let { form } = $props();
 </script>
 
-<h1 class="text-2xl font-display font-bold mb-4">Nouvelle recette</h1>
+<header class="text-center mb-12">
+  <div class="h-eyebrow mb-2">Nuova ricetta</div>
+  <h1 class="h-display text-5xl md:text-6xl italic">Une nouvelle recette</h1>
+  <div class="flex justify-center mt-4">
+    <Sprig width={100} />
+  </div>
+</header>
 
 {#if form?.error}
-  <div class="card bg-red-50 border-red-200 text-red-800 mb-4">⚠️ {form.error}</div>
+  <div class="card bg-terra-soft/50 border-terra/30 text-umber mb-8 max-w-2xl mx-auto">
+    <span class="font-display italic">Errore : </span>{form.error}
+  </div>
 {/if}
 
-<RecipeForm submitLabel="Créer la recette" cancelHref="/recipes" />
+<div class="max-w-3xl mx-auto">
+  <RecipeForm submitLabel="Créer la recette" cancelHref="/recipes" />
+</div>

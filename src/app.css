@@ -2,32 +2,186 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer components {
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  .btn-primary {
-    @apply btn bg-banana-500 text-stone-900 hover:bg-banana-600;
+  body {
+    background-color: #F4ECDB;
+    /* léger grain papier limestone */
+    background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.24 0 0 0 0 0.18 0 0 0 0 0.15 0 0 0 0.04 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size: 280px 280px;
   }
-  .btn-secondary {
-    @apply btn bg-white border border-stone-300 text-stone-700 hover:bg-stone-50;
+  ::selection {
+    background: #1F5673;
+    color: #FBF6EA;
   }
-  .btn-danger {
-    @apply btn bg-red-100 text-red-700 hover:bg-red-200;
-  }
-  .input {
-    @apply w-full px-3 py-2 rounded-lg border border-stone-300 bg-white focus:outline-none focus:ring-2 focus:ring-banana-400;
-  }
-  .label {
-    @apply block text-sm font-medium text-stone-700 mb-1;
-  }
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-stone-200 p-4;
+  /* Italics naturels en display, base serif */
+  h1, h2, h3, h4 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
   }
 }
 
+@layer components {
+  /* === Boutons === */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded
+           font-sans font-medium text-sm
+           transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-linen focus:ring-mare;
+  }
+  .btn-primary {
+    @apply btn bg-mare text-panna shadow-soft
+           hover:bg-mare-deep hover:shadow-soft-lg hover:-translate-y-px;
+  }
+  .btn-secondary {
+    @apply btn bg-panna text-umber border border-umber/20
+           hover:border-umber/40 hover:bg-linen;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-umber hover:bg-umber/5;
+  }
+  .btn-danger {
+    @apply btn bg-terra text-panna shadow-soft
+           hover:bg-terra/90 hover:-translate-y-px;
+  }
+  .btn-lemon {
+    @apply btn bg-limone text-umber shadow-soft
+           hover:bg-limone/90 hover:-translate-y-px;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-lg {
+    @apply px-7 py-3 text-base;
+  }
+
+  /* === Inputs === */
+  .input {
+    @apply w-full px-4 py-2.5 bg-panna text-umber
+           border border-umber/20 rounded
+           font-sans text-base placeholder:text-sepia/60 placeholder:italic placeholder:font-light
+           focus:outline-none focus:border-mare focus:bg-white
+           transition-colors;
+  }
+  textarea.input {
+    @apply leading-relaxed;
+  }
+  .label {
+    @apply block text-[11px] font-sans uppercase tracking-wider text-sepia font-medium mb-1.5;
+  }
+
+  /* === Cadres === */
+  .card {
+    @apply bg-panna border border-umber/15 rounded-card p-6 shadow-card;
+  }
+  .card-flat {
+    @apply bg-panna border border-umber/15 rounded-card p-6;
+  }
+  .card-sand {
+    @apply bg-sand border border-umber/15 rounded-card p-6;
+  }
+  .card-mare {
+    @apply bg-mare text-panna border border-mare-deep rounded-card p-6 shadow-soft-lg;
+  }
+  .card-elevated {
+    @apply card shadow-soft-lg;
+  }
+
+  /* === Headings éditoriaux === */
+  .h-display {
+    @apply font-display font-medium leading-[1.05] tracking-tight;
+  }
+  .h-eyebrow {
+    @apply font-sans text-[11px] uppercase tracking-widest text-sepia font-medium;
+  }
+  .h-script {
+    @apply font-script text-mare;
+  }
+
+  /* === Diviseurs ornés === */
+  .ornament {
+    @apply flex items-center gap-4 text-sepia my-6;
+  }
+  .ornament::before,
+  .ornament::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.3;
+  }
+
+  /* === Badges === */
+  .pill {
+    @apply inline-flex items-center px-3 py-1 rounded-full
+           font-sans text-xs font-medium
+           bg-panna border border-umber/20 text-umber;
+  }
+  .pill-mare {
+    @apply pill bg-mare text-panna border-mare-deep;
+  }
+  .pill-terra {
+    @apply pill bg-terra text-panna border-terra;
+  }
+  .pill-oliva {
+    @apply pill bg-oliva text-panna border-oliva;
+  }
+  .pill-limone {
+    @apply pill bg-limone text-umber border-limone;
+  }
+
+  .codice {
+    @apply inline-block font-mono text-xs tracking-wider text-sepia;
+  }
+
+  /* === Liens === */
+  .link {
+    @apply text-mare underline underline-offset-4 decoration-mare/40 hover:decoration-mare transition-colors;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .italic-light {
+    font-style: italic;
+    font-weight: 300;
+  }
+}
+
+/* === Animations === */
+@keyframes scanline {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(calc(100% - 2px)); opacity: 0; }
+}
+.animate-scanline {
+  animation: scanline 2.5s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* === Print === */
 @media print {
-  body { background: white !important; }
+  body {
+    background: white !important;
+    background-image: none !important;
+  }
   .no-print { display: none !important; }
+  .shadow-soft, .shadow-soft-lg, .shadow-card, .shadow-seal {
+    box-shadow: none !important;
+  }
   .print-page { page-break-after: always; }
 }
