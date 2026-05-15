@@ -8,6 +8,10 @@ dockerfile = "Dockerfile"
 DATA_DIR = "/data"
 PORT = "8080"
 HOST = "0.0.0.0"
+# Faire confiance aux headers du load balancer Fly (HTTPS termination chez eux).
+# Nécessaire pour le check CSRF de SvelteKit et le flag Secure des cookies.
+PROTOCOL_HEADER = "x-forwarded-proto"
+HOST_HEADER = "x-forwarded-host"
 
 [[mounts]]
 source = "bananani_data"

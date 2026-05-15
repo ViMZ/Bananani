@@ -1,48 +1,34 @@
-import { timingSafeEqual } from 'node:crypto';
+import { redirect } from '@sveltejs/kit';
+import { AUTH_ENABLED, SESSION_COOKIE, verifySession } from '$lib/server/auth';
 
-const USER = process.env.BANANANI_USER;
-const PASSWORD = process.env.BANANANI_PASSWORD;
-const AUTH_ENABLED = Boolean(USER && PASSWORD);
-const REALM = 'Bananani';
-
-function safeEqual(a, b) {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
-}
-
-function unauthorized() {
-  return new Response('Authentification requise', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': `Basic realm="${REALM}", charset="UTF-8"`,
-      'Content-Type': 'text/plain; charset=utf-8'
-    }
-  });
-}
+const PUBLIC_PATHS = new Set(['/login']);
 
 /** @type {import('@sveltejs/kit').Handle} */
 export async function handle({ event, resolve }) {
-  if (AUTH_ENABLED) {
-    const header = event.request.headers.get('authorization') ?? '';
-    if (!header.toLowerCase().startsWith('basic ')) {
-      return unauthorized();
-    }
-    let user = '';
-    let pass = '';
-    try {
-      const decoded = Buffer.from(header.slice(6), 'base64').toString('utf-8');
-      const idx = decoded.indexOf(':');
-      if (idx === -1) return unauthorized();
-      user = decoded.slice(0, idx);
-      pass = decoded.slice(idx + 1);
-    } catch {
-      return unauthorized();
-    }
-    if (!safeEqual(user, USER) || !safeEqual(pass, PASSWORD)) {
-      return unauthorized();
-    }
+  if (!AUTH_ENABLED) {
+    // Mode dev sans creds : pas d'auth, comportement legacy.
+    return resolve(event);
   }
+
+  const cookie = event.cookies.get(SESSION_COOKIE);
+  const session = verifySession(cookie);
+  if (session) {
+    event.locals.user = session.user;
+  }
+
+  const path = event.url.pathname;
+  const isPublic = PUBLIC_PATHS.has(path);
+
+  if (!session && !isPublic) {
+    // Pas connecté → rediriger vers /login, mémoriser la cible
+    const from = path === '/' ? '' : `?from=${encodeURIComponent(path + event.url.search)}`;
+    throw redirect(303, `/login${from}`);
+  }
+
+  if (session && path === '/login') {
+    // Déjà connecté, pas la peine de revoir le login
+    throw redirect(303, '/');
+  }
+
   return resolve(event);
 }
