@@ -121,9 +121,9 @@
         </div>
       </div>
 
-      <div class="bg-panna border border-umber/30 p-2.5 text-center shadow-soft">
-        <Barcode value={recipe.code} height={56} width={2} margin={0} displayValue={false} />
-        <div class="font-mono text-[10px] tracking-widest mt-1 text-umber">{recipe.code}</div>
+      <div class="bg-white border border-umber/30 p-2.5 text-center shadow-soft">
+        <Barcode value={recipe.code} size={110} margin={1} />
+        <div class="font-mono text-[10px] tracking-widest mt-1.5 text-umber">{recipe.code}</div>
       </div>
     </footer>
   </div>

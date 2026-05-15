@@ -27,7 +27,7 @@
     "@zxing/library": "^0.21.3",
     "better-sqlite3": "^11.5.0",
     "drizzle-orm": "^0.36.0",
-    "jsbarcode": "^3.11.6",
-    "nanoid": "^5.0.8"
+    "nanoid": "^5.0.8",
+    "qrcode": "^1.5.4"
   }
 }
