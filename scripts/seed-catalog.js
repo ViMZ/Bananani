@@ -67,7 +67,7 @@ const CATALOG = {
     ['Sucre', 'g'], ['Sucre vanillé', 'sachet'], ['Cassonade', 'g'], ['Sucre glace', 'g'],
     ['Chocolat noir', 'g'], ['Chocolat au lait', 'g'], ['Cacao', 'g'], ['Pépites de chocolat', 'g'],
     ['Miel', 'g'], ['Confiture', 'g'], ['Pâte à tartiner', 'g'], ['Compote', 'g'],
-    ['Levure chimique', 'sachet'], ['Levure de boulanger', 'sachet'], ['Sucre vanille', 'sachet'],
+    ['Levure chimique', 'sachet'], ['Levure de boulanger', 'sachet'],
     ['Sirop d’érable', 'ml'], ['Lait concentré', 'ml'], ['Vanille', 'pièce']
   ],
   'Épices & condiments': [
