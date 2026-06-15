@@ -15,6 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      # --strategy immediate : pas d'attente de health-check (la machine s'auto-éteint
+      # avec scale-to-zero, sinon flyctl reste bloqué à la surveiller).
+      # --wait-timeout : filet de sécurité pour ne jamais bloquer la file de runs.
+      - run: flyctl deploy --remote-only --strategy immediate --wait-timeout 5m
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
