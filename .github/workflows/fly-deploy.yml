@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     concurrency: deploy-group # une seule release à la fois
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: superfly/flyctl-actions/setup-flyctl@master
       # --strategy immediate : pas d'attente de health-check (la machine s'auto-éteint
       # avec scale-to-zero, sinon flyctl reste bloqué à la surveiller).
