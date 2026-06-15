@@ -52,7 +52,19 @@ La base est un fichier SQLite sur le volume local de la machine. Il faut **une s
 machine** : avec 2+ machines, chacune a son propre volume → données incohérentes selon
 le routage. Vérifier avec `fly status` (ne doit lister qu'une machine `app`).
 
-### Déployer
+### Déployer : auto sur push (GitHub Actions)
+
+**Un push sur `main` déclenche automatiquement le déploiement.** C'est géré par
+[`.github/workflows/fly-deploy.yml`](./.github/workflows/fly-deploy.yml) qui lance
+`flyctl deploy --remote-only` à chaque push.
+
+- Le workflow s'authentifie via le secret de dépôt **`FLY_API_TOKEN`** (réglages
+  GitHub → *Secrets and variables* → *Actions*). Pour le régénérer :
+  `fly tokens create deploy` puis `gh secret set FLY_API_TOKEN`.
+- Suivre un déploiement : `gh run list` / `gh run watch <id>`, ou l'onglet *Actions*
+  du repo.
+
+### Déploiement manuel (fallback)
 
 ```bash
 fly deploy      # build l'image depuis le répertoire LOCAL et la met en ligne
@@ -61,23 +73,16 @@ fly releases    # historique des versions déployées
 fly logs        # logs en direct
 ```
 
-- `fly deploy` lit les **fichiers locaux** (pas git) : pas besoin de commit/push pour
-  déployer. Ce qui est exclu du build est dans [`.dockerignore`](./.dockerignore)
-  (notamment `static/uploads/*` et `data/`).
+- `fly deploy` lit les **fichiers locaux** (pas git). Ce qui est exclu du build est
+  dans [`.dockerignore`](./.dockerignore) (notamment `static/uploads/*` et `data/`).
 
-### ⚠️ L'intégration GitHub ne déploie PAS vraiment
+### ⚠️ Ne PAS réactiver l'auto-deploy natif de Fly
 
-Une intégration Fly↔GitHub (`fly-io[bot]`) est connectée et **crée une entrée de
-déploiement à chaque push sur `main`** (visible dans l'onglet *Deployments* de GitHub,
-pas dans *Actions* — il n'y a aucun workflow GitHub Actions dans le repo).
-
-**MAIS ces déploiements restent bloqués sur `in_progress` et ne produisent jamais de
-nouvelle release.** Toutes les vraies mises en ligne (v1→v5) ont été faites
-**manuellement** via `fly deploy`. ⇒ **Un push ne suffit pas à publier ; il faut
-lancer `fly deploy`.**
-
-(Si on veut un jour un vrai déploiement auto sur push : ajouter un workflow GitHub
-Actions avec `superfly/flyctl-actions` + secret `FLY_API_TOKEN`.)
+Fly propose aussi son propre « Auto-Deploy on push » (le bot `fly-io[bot]`, réglages
+Fly → *GitHub Repository Settings*). **Il était cassé** (déploiements bloqués en
+`in_progress`, jamais finalisés) et fait **double emploi** avec notre workflow GitHub
+Actions. Il doit rester **désactivé** — sinon chaque push lance deux déploiements
+concurrents.
 
 ## PWA (installable « comme une appli »)
 
