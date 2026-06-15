@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "start": "node build",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "node scripts/seed.js"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.0",
