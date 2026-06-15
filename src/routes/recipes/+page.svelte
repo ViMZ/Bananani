@@ -37,7 +37,7 @@
   </svg>
   <input
     type="search"
-    placeholder="Cerca… par titre ou code BAN-XXXXXX"
+    placeholder="Rechercher… par titre ou code BAN-XXXXXX"
     bind:value={query}
     class="input pl-11 italic"
   />
@@ -53,7 +53,7 @@
       <p class="text-sepia mb-8">Aucune recette enregistrée pour l'instant.</p>
       <a href="/recipes/new" class="btn-primary">＋ Créer la première</a>
     {:else}
-      <h2 class="h-display text-2xl italic text-sepia mb-1">Niente trovato</h2>
+      <h2 class="h-display text-2xl italic text-sepia mb-1">Aucun résultat</h2>
       <p class="text-sepia">Aucun résultat pour « {query} »</p>
     {/if}
   </div>

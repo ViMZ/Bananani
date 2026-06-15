@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-  <title>Accedi · Bananani</title>
+  <title>Connexion · Bananani</title>
 </svelte:head>
 
 <div class="min-h-[60vh] flex items-center justify-center px-4">
@@ -54,7 +54,7 @@
       {/if}
 
       <button type="submit" class="btn-primary w-full btn-lg">
-        Accedi →
+        Se connecter →
       </button>
     </form>
 

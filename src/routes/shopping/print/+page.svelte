@@ -34,7 +34,7 @@
 
   <div class="relative p-9 md:p-12">
     <header class="text-center pb-6">
-      <div class="h-eyebrow text-mare mb-2">La Casa di Bananani · Lista della spesa</div>
+      <div class="h-eyebrow text-mare mb-2">La Casa di Bananani · Liste de courses</div>
       <h1 class="h-display text-4xl md:text-5xl italic">Liste de courses</h1>
       <div class="text-sm italic text-sepia mt-2">
         {today} · {data.items.length} article{data.items.length > 1 ? 's' : ''}
@@ -45,7 +45,7 @@
     </header>
 
     {#if data.items.length === 0}
-      <p class="text-center text-sepia italic">Niente — liste vide.</p>
+      <p class="text-center text-sepia italic">Rien — liste vide.</p>
     {:else}
       <div class="space-y-8">
         {#each grouped() as [groupName, items]}

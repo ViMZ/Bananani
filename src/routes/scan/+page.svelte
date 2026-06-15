@@ -119,7 +119,7 @@
 
 <header class="text-center mb-12">
   <div class="h-eyebrow mb-2">Capture</div>
-  <h1 class="h-display text-5xl md:text-6xl italic">Scansiona</h1>
+  <h1 class="h-display text-5xl md:text-6xl italic">Scanner</h1>
   <p class="text-sepia italic mt-2">
     Pointe la caméra sur une fiche, ou tape le code BAN-XXXXXX
   </p>
@@ -141,7 +141,7 @@
 
     {#if cameraError}
       <div class="bg-terra-soft/50 border border-terra/30 rounded p-3 mb-4 text-sm italic text-umber">
-        Errore : {cameraError}
+        Erreur : {cameraError}
       </div>
     {/if}
 
@@ -152,7 +152,7 @@
       {#if !scanning}
         <div class="absolute inset-0 flex items-center justify-center">
           <div class="text-center">
-            <div class="font-display italic text-panna text-4xl">spento</div>
+            <div class="font-display italic text-panna text-4xl">éteint</div>
             <div class="h-eyebrow text-panna/60 mt-1">caméra inactive</div>
           </div>
         </div>
@@ -201,7 +201,7 @@
         </div>
       {:else}
         <div class="mt-4 p-3 rounded bg-terra-soft/60 border border-terra/30 text-sm italic animate-fade-in">
-          Errore : {scanFeedback.message}
+          Erreur : {scanFeedback.message}
           {#if scanFeedback.code}<span class="font-mono not-italic"> ({scanFeedback.code})</span>{/if}
         </div>
       {/if}
@@ -214,7 +214,7 @@
 
   <!-- Saisie manuelle -->
   <section class="card-sand">
-    <div class="h-eyebrow mb-4">— A mano</div>
+    <div class="h-eyebrow mb-4">— À la main</div>
 
     <form
       method="POST"
@@ -241,7 +241,7 @@
 
     {#if form?.error}
       <div class="mt-4 p-3 rounded bg-terra-soft/60 border border-terra/30 text-sm italic animate-fade-in">
-        Errore : {form.error}
+        Erreur : {form.error}
       </div>
     {/if}
     {#if form?.added > 0}
@@ -263,7 +263,7 @@
 {#if recentScans.length > 0}
   <section class="mt-12">
     <div class="flex items-baseline gap-4 mb-4">
-      <h2 class="h-display italic text-2xl text-sepia">Scansioni recenti</h2>
+      <h2 class="h-display italic text-2xl text-sepia">Scans récents</h2>
       <span class="flex-1 h-px bg-umber/15"></span>
       <span class="h-eyebrow">{recentScans.length}</span>
     </div>

@@ -3,7 +3,7 @@
    * Médaillon de style menu de trattoria : double cadre, fond crème,
    * tampon de code (BAN-XXXX) en mono sépia.
    */
-  let { code, label = 'Codice', size = 110 } = $props();
+  let { code, label = 'Code', size = 110 } = $props();
 </script>
 
 <div

@@ -63,7 +63,7 @@
     <!-- Meta cards -->
     <div class="grid grid-cols-2 gap-3">
       <div class="card-flat text-center py-4">
-        <div class="h-eyebrow">Persone</div>
+        <div class="h-eyebrow">Personnes</div>
         <div class="font-display text-3xl text-mare mt-1">{recipe.servings}</div>
       </div>
       <div class="card-flat text-center py-4">
@@ -83,7 +83,7 @@
       </div>
 
       {#if ingredients.length === 0}
-        <p class="text-sepia italic">Niente — pas encore d'ingrédient.</p>
+        <p class="text-sepia italic">Rien — pas encore d'ingrédient.</p>
       {:else}
         <ul class="space-y-4">
           {#each ingredients as i, idx}

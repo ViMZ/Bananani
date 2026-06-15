@@ -44,7 +44,7 @@
       <div class="font-display text-5xl md:text-6xl leading-none transition-colors {data.pendingShoppingCount > 0 ? 'text-terra group-hover:text-terra/80' : 'text-mare group-hover:text-mare-deep'}">
         {data.pendingShoppingCount}
       </div>
-      <div class="h-eyebrow mt-2">In lista</div>
+      <div class="h-eyebrow mt-2">À acheter</div>
     </a>
     <a href="/scan" class="block group">
       <div class="font-display italic text-4xl md:text-5xl text-oliva leading-tight group-hover:text-oliva/80 transition-colors">
@@ -62,7 +62,7 @@
   <section>
     <div class="flex items-end justify-between mb-8 flex-wrap gap-4">
       <div>
-        <div class="h-eyebrow mb-1">Le ultime</div>
+        <div class="h-eyebrow mb-1">Les dernières</div>
         <h2 class="h-display text-3xl md:text-4xl italic">Dernières recettes</h2>
       </div>
       <a href="/recipes" class="link text-sm">Voir tout le ricettario →</a>

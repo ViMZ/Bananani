@@ -59,15 +59,15 @@
 
       <div class="space-y-2 text-sm">
         <div class="flex items-baseline justify-between border-b border-dotted border-umber/30 pb-1.5">
-          <span class="text-sepia italic">Per</span>
-          <span class="font-display text-xl text-umber">{recipe.servings} <span class="text-sm font-sans text-sepia">persone</span></span>
+          <span class="text-sepia italic">Pour</span>
+          <span class="font-display text-xl text-umber">{recipe.servings} <span class="text-sm font-sans text-sepia">personnes</span></span>
         </div>
         <div class="flex items-baseline justify-between border-b border-dotted border-umber/30 pb-1.5">
           <span class="text-sepia italic">Ingredienti</span>
           <span class="font-display text-xl text-umber">{ingredients.length}</span>
         </div>
         <div class="flex items-baseline justify-between border-b border-dotted border-umber/30 pb-1.5">
-          <span class="text-sepia italic">Codice</span>
+          <span class="text-sepia italic">Code</span>
           <span class="font-mono text-xs tracking-wider text-umber">{recipe.code}</span>
         </div>
         <div class="pt-2 text-xs italic text-sepia leading-relaxed">
@@ -86,7 +86,7 @@
       </div>
 
       {#if ingredients.length === 0}
-        <p class="text-sepia italic text-sm">Niente — pas d'ingrédient.</p>
+        <p class="text-sepia italic text-sm">Rien — pas d'ingrédient.</p>
       {:else}
         <ul class="columns-2 gap-8 text-[13px] leading-snug">
           {#each ingredients as i, idx}
@@ -111,7 +111,7 @@
 
     <!-- Pied avec code-barres + seal -->
     <footer class="mt-6 pt-5 border-t border-mare/30 grid grid-cols-[auto_1fr_auto] gap-5 items-center">
-      <Seal code={recipe.code} label="Codice" size={100} />
+      <Seal code={recipe.code} label="Code" size={100} />
 
       <div class="text-center">
         <div class="h-eyebrow text-terra mb-1">Scannez ce code</div>

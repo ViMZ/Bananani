@@ -28,7 +28,7 @@
 <form method="POST" enctype="multipart/form-data" class="space-y-10">
   <!-- Identité -->
   <section class="card">
-    <div class="h-eyebrow mb-5">— Identità della ricetta</div>
+    <div class="h-eyebrow mb-5">— Identité de la recette</div>
 
     <div class="space-y-5">
       <div>

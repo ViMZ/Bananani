@@ -9,13 +9,13 @@
 </div>
 
 <header class="text-center mb-12">
-  <div class="h-eyebrow mb-2">Modifica · <span class="codice">{data.recipe.code}</span></div>
+  <div class="h-eyebrow mb-2">Modifier · <span class="codice">{data.recipe.code}</span></div>
   <h1 class="h-display text-4xl md:text-5xl italic text-balance">{data.recipe.title}</h1>
 </header>
 
 {#if form?.error}
   <div class="card bg-terra-soft/50 border-terra/30 text-umber mb-8 max-w-2xl mx-auto">
-    <span class="font-display italic">Errore : </span>{form.error}
+    <span class="font-display italic">Erreur : </span>{form.error}
   </div>
 {/if}
 

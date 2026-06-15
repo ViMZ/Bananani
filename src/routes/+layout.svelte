@@ -5,10 +5,10 @@
   let { children } = $props();
 
   const nav = [
-    { href: '/', label: 'Home' },
+    { href: '/', label: 'Accueil' },
     { href: '/recipes', label: 'Ricettario' },
-    { href: '/scan', label: 'Scansiona' },
-    { href: '/shopping', label: 'Lista' }
+    { href: '/scan', label: 'Scanner' },
+    { href: '/shopping', label: 'Courses' }
   ];
 
   function isActive(href) {

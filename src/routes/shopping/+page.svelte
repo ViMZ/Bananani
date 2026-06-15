@@ -7,7 +7,7 @@
   let grouped = $derived(() => {
     const groups = {};
     for (const item of data.items) {
-      const key = item.recipeTitle || 'Aggiunti a mano';
+      const key = item.recipeTitle || 'Ajoutés à la main';
       (groups[key] ??= []).push(item);
     }
     return Object.entries(groups);
@@ -18,7 +18,7 @@
 </script>
 
 <header class="text-center mb-12">
-  <div class="h-eyebrow mb-2">Lista della spesa</div>
+  <div class="h-eyebrow mb-2">Liste de courses</div>
   <h1 class="h-display text-5xl md:text-6xl italic">Courses</h1>
   <p class="text-sepia mt-3 italic">
     <span class="font-display text-mare not-italic">{pending}</span> à acheter
@@ -43,7 +43,7 @@
 
 <!-- Ajout manuel -->
 <section class="card-sand mb-10">
-  <div class="h-eyebrow mb-4">— Aggiungere a mano</div>
+  <div class="h-eyebrow mb-4">— Ajouter à la main</div>
   <form method="POST" action="?/add" use:enhance class="grid sm:grid-cols-[1fr_90px_90px_1fr_auto] gap-3 items-end">
     <div>
       <label class="label" for="add-name">Article</label>
@@ -70,7 +70,7 @@
     <div class="flex justify-center mb-4 opacity-50">
       <Sprig width={120} />
     </div>
-    <h2 class="h-display text-3xl italic text-sepia mb-2">Lista vuota</h2>
+    <h2 class="h-display text-3xl italic text-sepia mb-2">Liste vide</h2>
     <p class="text-sepia mb-8">Aucun article à acheter — scanne une fiche pour commencer.</p>
     <a href="/scan" class="btn-primary">→ Scanner une fiche</a>
   </div>
