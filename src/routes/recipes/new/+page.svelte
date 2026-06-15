@@ -2,7 +2,7 @@
   import RecipeForm from '$lib/components/RecipeForm.svelte';
   import Sprig from '$lib/components/Sprig.svelte';
   import BackLink from '$lib/components/BackLink.svelte';
-  let { form } = $props();
+  let { data, form } = $props();
 </script>
 
 <div class="mb-6">
@@ -24,5 +24,5 @@
 {/if}
 
 <div class="max-w-3xl mx-auto">
-  <RecipeForm submitLabel="Créer la recette" cancelHref="/recipes" />
+  <RecipeForm catalog={data.catalog} submitLabel="Créer la recette" cancelHref="/recipes" />
 </div>

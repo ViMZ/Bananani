@@ -1,10 +1,23 @@
 <script>
   import { enhance } from '$app/forms';
   import Sprig from '$lib/components/Sprig.svelte';
+  import { aggregateItems, groupByCategory } from '$lib/ingredients/aggregate';
 
   let { data } = $props();
 
-  let grouped = $derived(() => {
+  // Vue : 'ingredient' (quantités additionnées) ou 'recipe' (groupé par recette).
+  let viewMode = $state('ingredient');
+  $effect(() => {
+    const saved = localStorage.getItem('shopping-view');
+    if (saved === 'recipe' || saved === 'ingredient') viewMode = saved;
+  });
+  function setView(mode) {
+    viewMode = mode;
+    localStorage.setItem('shopping-view', mode);
+  }
+
+  // Vue par recette : groupement visuel inchangé.
+  let groupedByRecipe = $derived.by(() => {
     const groups = {};
     for (const item of data.items) {
       const key = item.recipeTitle || 'Ajoutés à la main';
@@ -12,6 +25,9 @@
     }
     return Object.entries(groups);
   });
+
+  // Vue par ingrédient : agrégation + addition, groupée par rayon de magasin.
+  let byCategory = $derived(groupByCategory(aggregateItems(data.items)));
 
   let pending = $derived(data.items.filter((i) => !i.checked).length);
   let done = $derived(data.items.filter((i) => i.checked).length);
@@ -27,8 +43,21 @@
   </p>
 </header>
 
+<div class="flex justify-center mb-6 no-print">
+  <div class="inline-flex rounded-full border border-umber/20 bg-panna p-1 text-sm">
+    <button
+      class="px-4 py-1.5 rounded-full transition-colors {viewMode === 'ingredient' ? 'bg-mare text-panna shadow-soft' : 'text-sepia hover:text-mare'}"
+      onclick={() => setView('ingredient')}
+    >Par ingrédient</button>
+    <button
+      class="px-4 py-1.5 rounded-full transition-colors {viewMode === 'recipe' ? 'bg-mare text-panna shadow-soft' : 'text-sepia hover:text-mare'}"
+      onclick={() => setView('recipe')}
+    >Par recette</button>
+  </div>
+</div>
+
 <div class="flex flex-wrap justify-center gap-2 mb-10 no-print">
-  <a href="/shopping/print" class="btn-secondary">🍋 Imprimer la liste</a>
+  <a href="/shopping/print?view={viewMode}" class="btn-secondary">🍋 Imprimer la liste</a>
   {#if done > 0}
     <form method="POST" action="?/clearChecked" use:enhance>
       <button class="btn-secondary">Retirer les cochés ({done})</button>
@@ -74,9 +103,80 @@
     <p class="text-sepia mb-8">Aucun article à acheter — scanne une fiche pour commencer.</p>
     <a href="/scan" class="btn-primary">→ Scanner une fiche</a>
   </div>
+{:else if viewMode === 'ingredient'}
+  <!-- Vue agrégée : un article par ingrédient, quantités additionnées, par rayon. -->
+  <div class="space-y-10">
+    {#each byCategory as [categoryName, groups]}
+      <section>
+        <div class="flex items-baseline gap-4 mb-4">
+          <h2 class="h-display italic text-2xl text-mare">{categoryName}</h2>
+          <span class="flex-1 h-px bg-mare/30"></span>
+          <span class="h-eyebrow text-mare">{groups.length}</span>
+        </div>
+        <ul class="space-y-2">
+          {#each groups as group (group.key)}
+            <li class="flex items-start gap-3 py-3 px-4 rounded bg-panna border border-umber/10 hover:border-umber/25 transition-colors">
+        <form method="POST" action="?/toggle" use:enhance class="pt-0.5">
+          <input type="hidden" name="ids" value={group.ids.join(',')} />
+          <input type="hidden" name="checked" value={group.checked ? '0' : '1'} />
+          <button
+            type="submit"
+            class="w-5 h-5 border rounded-sm flex items-center justify-center transition-all
+                   {group.checked
+                     ? 'bg-oliva border-oliva shadow-soft'
+                     : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
+            aria-label={group.checked ? 'Décocher' : 'Cocher'}
+          >
+            {#if group.checked}
+              <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 6 L5 9 L10 3" />
+              </svg>
+            {/if}
+          </button>
+        </form>
+        <div class="flex-1 {group.checked ? 'line-through text-sepia/60' : ''}">
+          <div class="flex items-baseline gap-3 flex-wrap">
+            <span class="font-sans text-[15px] font-medium text-umber">{group.label}</span>
+            {#if group.subtotals.length > 0}
+              <span class="font-display text-base text-umber/70">
+                {group.subtotals.map((s) => s.display).join(' · ')}
+              </span>
+            {/if}
+            {#if group.recipes.length > 1}
+              <span class="font-mono text-[10px] uppercase tracking-wider text-mare bg-mare-soft/30 rounded-full px-2 py-0.5">
+                ×{group.recipes.length} recettes
+              </span>
+            {/if}
+          </div>
+          {#if group.brand || group.productReference}
+            <div class="font-mono text-[10px] uppercase tracking-wider text-sepia mt-0.5">
+              {[group.brand, group.productReference].filter(Boolean).join(' · ')}
+            </div>
+          {/if}
+          {#if group.recipes.length > 0}
+            <div class="text-xs text-sepia/70 italic mt-0.5">{group.recipes.join(', ')}</div>
+          {/if}
+          {#if group.notes.length > 0}
+            <div class="text-sm text-sepia italic mt-0.5">{group.notes.join(' · ')}</div>
+          {/if}
+        </div>
+        <form method="POST" action="?/remove" use:enhance>
+          <input type="hidden" name="ids" value={group.ids.join(',')} />
+          <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label="Supprimer">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+            </svg>
+          </button>
+        </form>
+      </li>
+          {/each}
+        </ul>
+      </section>
+    {/each}
+  </div>
 {:else}
   <div class="space-y-10">
-    {#each grouped() as [groupName, items]}
+    {#each groupedByRecipe as [groupName, items]}
       <section>
         <div class="flex items-baseline gap-4 mb-4">
           <h2 class="h-display italic text-2xl text-mare">{groupName}</h2>

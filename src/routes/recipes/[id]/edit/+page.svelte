@@ -23,6 +23,7 @@
   <RecipeForm
     recipe={data.recipe}
     ingredients={data.ingredients}
+    catalog={data.catalog}
     submitLabel="Enregistrer"
     cancelHref="/recipes/{data.recipe.id}"
   />

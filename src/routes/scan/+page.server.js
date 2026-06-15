@@ -21,6 +21,7 @@ export const actions = {
       ingredients.map((i) => ({
         recipeId: recipe.id,
         recipeTitle: recipe.title,
+        canonicalId: i.canonicalId,
         name: i.name,
         brand: i.brand,
         productReference: i.productReference,

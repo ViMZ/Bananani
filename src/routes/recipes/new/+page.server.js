@@ -1,5 +1,10 @@
 import { redirect, fail } from '@sveltejs/kit';
 import { createRecipe } from '$lib/server/recipes';
+import { listCatalog } from '$lib/server/ingredients/catalog';
+
+export async function load() {
+  return { catalog: await listCatalog() };
+}
 
 export const actions = {
   default: async ({ request }) => {

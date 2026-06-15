@@ -19,6 +19,15 @@ export const db = drizzle(sqlite, { schema });
 
 // Bootstrap tables on first run (idempotent).
 sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS ingredient_catalog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    normalized_key TEXT NOT NULL UNIQUE,
+    default_unit TEXT DEFAULT '',
+    category TEXT DEFAULT '',
+    created_at TEXT DEFAULT (CURRENT_TIMESTAMP) NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS recipes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT NOT NULL UNIQUE,
@@ -33,6 +42,7 @@ sqlite.exec(`
   CREATE TABLE IF NOT EXISTS recipe_ingredients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+    canonical_id INTEGER REFERENCES ingredient_catalog(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     brand TEXT DEFAULT '',
     product_reference TEXT DEFAULT '',
@@ -45,6 +55,7 @@ sqlite.exec(`
   CREATE TABLE IF NOT EXISTS shopping_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     recipe_id INTEGER REFERENCES recipes(id) ON DELETE SET NULL,
+    canonical_id INTEGER REFERENCES ingredient_catalog(id) ON DELETE SET NULL,
     recipe_title TEXT DEFAULT '',
     name TEXT NOT NULL,
     brand TEXT DEFAULT '',
@@ -56,3 +67,23 @@ sqlite.exec(`
     added_at TEXT DEFAULT (CURRENT_TIMESTAMP) NOT NULL
   );
 `);
+
+// Migration douce : ajoute des colonnes aux tables déjà créées avant l'introduction
+// du catalogue. CREATE TABLE IF NOT EXISTS ne modifie pas une table existante, on
+// passe donc par des ALTER TABLE gardés (no-op si la colonne est déjà là).
+function addColumnIfMissing(table, column, definition) {
+  const cols = sqlite.pragma(`table_info(${table})`);
+  if (!cols.some((c) => c.name === column)) {
+    sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+for (const table of ['recipe_ingredients', 'shopping_items']) {
+  addColumnIfMissing(
+    table,
+    'canonical_id',
+    'INTEGER REFERENCES ingredient_catalog(id) ON DELETE SET NULL'
+  );
+}
+addColumnIfMissing('ingredient_catalog', 'default_unit', "TEXT DEFAULT ''");
+addColumnIfMissing('ingredient_catalog', 'category', "TEXT DEFAULT ''");

@@ -1,19 +1,39 @@
 <script>
+  import { normalizeName } from '$lib/ingredients/normalize';
+  import { CATEGORIES } from '$lib/ingredients/categories';
+
   let {
     recipe = { title: '', description: '', servings: 2, instructions: '', photoPath: null },
     ingredients = [],
+    catalog = [],
     submitLabel = 'Enregistrer',
     cancelHref = '/recipes'
   } = $props();
 
+  // Index normalizedKey -> { unité par défaut, catégorie } du catalogue, pour
+  // pré-remplir unité et catégorie quand on saisit/choisit un ingrédient connu.
+  const byKey = new Map(
+    catalog.map((e) => [e.normalizedKey, { unit: e.defaultUnit, category: e.category }])
+  );
+
+  function blank() {
+    return { name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '', category: '' };
+  }
+
+  // À l'édition, la catégorie n'est pas stockée sur la ligne : on la retrouve via
+  // le catalogue à partir du nom de l'ingrédient.
   let items = $state(
     ingredients.length > 0
-      ? ingredients.map((i) => ({ ...i }))
-      : [{ name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '' }]
+      ? ingredients.map((i) => ({
+          ...blank(),
+          ...i,
+          category: i.category || byKey.get(normalizeName(i.name))?.category || ''
+        }))
+      : [blank()]
   );
 
   function addIngredient() {
-    items = [{ name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '' }, ...items];
+    items = [blank(), ...items];
   }
 
   function removeIngredient(idx) {
@@ -23,7 +43,27 @@
 
   const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
     'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+
+  // Pré-remplit unité et catégorie depuis le catalogue sans écraser une saisie.
+  function prefillFromCatalog(item) {
+    const entry = byKey.get(normalizeName(item.name));
+    if (!entry) return;
+    if (!item.unit && entry.unit) item.unit = entry.unit;
+    if (!item.category && entry.category) item.category = entry.category;
+  }
 </script>
+
+<datalist id="ingredient-catalog">
+  {#each catalog as entry}
+    <option value={entry.name}></option>
+  {/each}
+</datalist>
+
+<datalist id="ingredient-categories">
+  {#each CATEGORIES as cat}
+    <option value={cat}></option>
+  {/each}
+</datalist>
 
 <form method="POST" enctype="multipart/form-data" class="space-y-10">
   <!-- Identité -->
@@ -84,13 +124,14 @@
           </span>
 
           <div class="grid sm:grid-cols-[1fr_100px_90px] gap-2 mb-2 mt-1">
-            <input class="input" name="ing_name" placeholder="Nom (ex. Pomodori pelati)" required={idx === 0} bind:value={item.name} />
+            <input class="input" name="ing_name" placeholder="Nom (ex. Pomodori pelati)" list="ingredient-catalog" required={idx === 0} bind:value={item.name} onchange={() => prefillFromCatalog(item)} />
             <input class="input font-mono text-center" name="ing_quantity" type="number" step="0.01" min="0" placeholder="Qté" bind:value={item.quantity} />
             <input class="input font-mono" name="ing_unit" placeholder="g / ml" bind:value={item.unit} />
           </div>
-          <div class="grid sm:grid-cols-2 gap-2 mb-2">
+          <div class="grid sm:grid-cols-3 gap-2 mb-2">
             <input class="input" name="ing_brand" placeholder="Marque (ex. Mutti)" bind:value={item.brand} />
             <input class="input font-mono text-sm" name="ing_product_reference" placeholder="Référence produit" bind:value={item.productReference} />
+            <input class="input" name="ing_category" placeholder="Rayon (ex. Épicerie salée)" list="ingredient-categories" bind:value={item.category} />
           </div>
           <div class="flex items-start gap-2">
             <input class="input flex-1 italic" name="ing_notes" placeholder="Notes (optionnel)" bind:value={item.notes} />

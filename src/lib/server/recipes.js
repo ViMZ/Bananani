@@ -3,6 +3,7 @@ import { recipes, recipeIngredients } from './db/schema.js';
 import { eq } from 'drizzle-orm';
 import { generateRecipeCode } from './codes.js';
 import { savePhoto, deletePhoto } from './uploads.js';
+import { resolveOrCreate } from './ingredients/catalog.js';
 
 /**
  * Parse les champs d'ingrédients depuis un FormData (champs répétés `ing_*`).
@@ -15,6 +16,7 @@ function parseIngredients(formData) {
   const qtys = formData.getAll('ing_quantity');
   const units = formData.getAll('ing_unit');
   const notes = formData.getAll('ing_notes');
+  const categories = formData.getAll('ing_category');
 
   const result = [];
   for (let i = 0; i < names.length; i++) {
@@ -27,10 +29,30 @@ function parseIngredients(formData) {
       quantity: Number(qtys[i] ?? 0) || 0,
       unit: String(units[i] ?? '').trim(),
       notes: String(notes[i] ?? '').trim(),
-      position: i
+      position: i,
+      // Transient : sert à enrichir le catalogue, pas une colonne de recipe_ingredients.
+      _category: String(categories[i] ?? '').trim()
     });
   }
   return result;
+}
+
+/**
+ * Résout le canonicalId de chaque ingrédient (catalogue alimenté au fil de l'eau).
+ * Séquentiel à dessein : deux ingrédients d'une même recette peuvent normaliser
+ * vers la même clé, on évite ainsi toute course sur la contrainte d'unicité.
+ * @param {ReturnType<typeof parseIngredients>} ings
+ */
+async function withCanonicalIds(ings) {
+  const out = [];
+  for (const ing of ings) {
+    // `_category` n'est pas une colonne de recipe_ingredients : on l'extrait pour
+    // enrichir le catalogue, et on ne garde que les champs persistés dans la ligne.
+    const { _category, ...row } = ing;
+    const canonicalId = await resolveOrCreate(ing.name, ing.unit, _category);
+    out.push({ ...row, canonicalId });
+  }
+  return out;
 }
 
 async function uniqueRecipeCode() {
@@ -63,7 +85,7 @@ export async function createRecipe(formData) {
     })
     .returning();
 
-  const ings = parseIngredients(formData);
+  const ings = await withCanonicalIds(parseIngredients(formData));
   if (ings.length > 0) {
     await db.insert(recipeIngredients).values(ings.map((i) => ({ ...i, recipeId: inserted.id })));
   }
@@ -103,7 +125,7 @@ export async function updateRecipe(id, formData) {
     .where(eq(recipes.id, id));
 
   await db.delete(recipeIngredients).where(eq(recipeIngredients.recipeId, id));
-  const ings = parseIngredients(formData);
+  const ings = await withCanonicalIds(parseIngredients(formData));
   if (ings.length > 0) {
     await db.insert(recipeIngredients).values(ings.map((i) => ({ ...i, recipeId: id })));
   }

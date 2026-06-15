@@ -9,6 +9,7 @@
 import { db } from '../src/lib/server/db/index.js';
 import { recipes, recipeIngredients } from '../src/lib/server/db/schema.js';
 import { generateRecipeCode } from '../src/lib/server/codes.js';
+import { resolveOrCreate } from '../src/lib/server/ingredients/catalog.js';
 import { eq } from 'drizzle-orm';
 
 const force = process.argv.includes('--force');
@@ -205,9 +206,12 @@ async function seed() {
       })
       .returning();
 
-    await db.insert(recipeIngredients).values(
-      f.ingredients.map((ing, position) => ({
+    const rows = [];
+    for (let position = 0; position < f.ingredients.length; position++) {
+      const ing = f.ingredients[position];
+      rows.push({
         recipeId: inserted.id,
+        canonicalId: await resolveOrCreate(ing.name, ing.unit),
         name: ing.name,
         brand: ing.brand ?? '',
         productReference: ing.productReference ?? '',
@@ -215,8 +219,9 @@ async function seed() {
         unit: ing.unit ?? '',
         notes: ing.notes ?? '',
         position
-      }))
-    );
+      });
+    }
+    await db.insert(recipeIngredients).values(rows);
 
     console.log(`  ✓ ${inserted.code}  ${f.title}`);
   }

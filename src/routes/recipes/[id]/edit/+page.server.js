@@ -1,12 +1,13 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getRecipeWithIngredients, updateRecipe } from '$lib/server/recipes';
+import { listCatalog } from '$lib/server/ingredients/catalog';
 
 export async function load({ params }) {
   const id = Number(params.id);
   if (Number.isNaN(id)) throw error(404);
   const data = await getRecipeWithIngredients(id);
   if (!data) throw error(404, 'Recette introuvable');
-  return data;
+  return { ...data, catalog: await listCatalog() };
 }
 
 export const actions = {

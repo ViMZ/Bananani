@@ -1,6 +1,15 @@
 import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
+export const ingredientCatalog = sqliteTable('ingredient_catalog', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  normalizedKey: text('normalized_key').notNull().unique(),
+  defaultUnit: text('default_unit').default(''),
+  category: text('category').default(''),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull()
+});
+
 export const recipes = sqliteTable('recipes', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   code: text('code').notNull().unique(),
@@ -17,6 +26,9 @@ export const recipeIngredients = sqliteTable('recipe_ingredients', {
   recipeId: integer('recipe_id')
     .notNull()
     .references(() => recipes.id, { onDelete: 'cascade' }),
+  canonicalId: integer('canonical_id').references(() => ingredientCatalog.id, {
+    onDelete: 'set null'
+  }),
   name: text('name').notNull(),
   brand: text('brand').default(''),
   productReference: text('product_reference').default(''),
@@ -29,6 +41,9 @@ export const recipeIngredients = sqliteTable('recipe_ingredients', {
 export const shoppingItems = sqliteTable('shopping_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   recipeId: integer('recipe_id').references(() => recipes.id, { onDelete: 'set null' }),
+  canonicalId: integer('canonical_id').references(() => ingredientCatalog.id, {
+    onDelete: 'set null'
+  }),
   recipeTitle: text('recipe_title').default(''),
   name: text('name').notNull(),
   brand: text('brand').default(''),

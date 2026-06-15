@@ -1,8 +1,9 @@
 <script>
   import Sprig from '$lib/components/Sprig.svelte';
+  import { aggregateItems, groupByCategory } from '$lib/ingredients/aggregate';
   let { data } = $props();
 
-  let grouped = $derived(() => {
+  let groupedByRecipe = $derived.by(() => {
     const groups = {};
     for (const item of data.items) {
       const key = item.recipeTitle || 'Divers';
@@ -10,6 +11,8 @@
     }
     return Object.entries(groups);
   });
+
+  let byCategory = $derived(groupByCategory(aggregateItems(data.items)));
 
   function print() {
     window.print();
@@ -46,9 +49,41 @@
 
     {#if data.items.length === 0}
       <p class="text-center text-sepia italic">Rien — liste vide.</p>
+    {:else if data.view === 'ingredient'}
+      <div class="space-y-6">
+        {#each byCategory as [categoryName, groups]}
+          <section>
+            <div class="flex items-baseline gap-4 mb-3">
+              <h2 class="h-display italic text-xl text-mare">{categoryName}</h2>
+              <span class="flex-1 h-px bg-mare/30"></span>
+              <span class="h-eyebrow text-mare">{groups.length}</span>
+            </div>
+            <ul class="space-y-1.5">
+              {#each groups as group (group.key)}
+                <li class="grid grid-cols-[20px_1fr_auto] gap-3 items-baseline">
+                  <span class="w-4 h-4 border border-umber/40 rounded-sm inline-block mt-0.5"></span>
+                  <div>
+                    <span class="font-sans font-medium text-umber">{group.label}</span>
+                    {#if group.brand || group.productReference}
+                      <span class="font-mono text-[10px] uppercase tracking-wider text-sepia">
+                        &nbsp;·&nbsp;{[group.brand, group.productReference].filter(Boolean).join(' · ')}
+                      </span>
+                    {/if}
+                  </div>
+                  {#if group.subtotals.length > 0}
+                    <span class="font-display text-base text-umber whitespace-nowrap">
+                      {group.subtotals.map((s) => s.display).join(' · ')}
+                    </span>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          </section>
+        {/each}
+      </div>
     {:else}
       <div class="space-y-8">
-        {#each grouped() as [groupName, items]}
+        {#each groupedByRecipe as [groupName, items]}
           <section>
             <div class="flex items-baseline gap-4 mb-3">
               <h2 class="h-display italic text-xl text-mare">{groupName}</h2>
