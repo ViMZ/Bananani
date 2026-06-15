@@ -1,0 +1,59 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#FBF4E6"/>
+      <stop offset="100%" stop-color="#F0E4C8"/>
+    </radialGradient>
+    <linearGradient id="peel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFE15A"/>
+      <stop offset="100%" stop-color="#F4B82E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fond plein cadre (maskable) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <g transform="translate(60 8)">
+  <!-- ombre portée -->
+  <path d="M205 110 C 120 200, 120 330, 215 410"
+        fill="none" stroke="#000000" stroke-opacity="0.10"
+        stroke-width="92" stroke-linecap="round" transform="translate(6 12)"/>
+
+  <!-- corps de la banane -->
+  <path d="M205 110 C 120 200, 120 330, 215 410"
+        fill="none" stroke="url(#peel)"
+        stroke-width="88" stroke-linecap="round"/>
+
+  <!-- liseré gauche plus foncé -->
+  <path d="M205 110 C 120 200, 120 330, 215 410"
+        fill="none" stroke="#E0A21F" stroke-opacity="0.55"
+        stroke-width="18" stroke-linecap="round" transform="translate(-26 0)"/>
+
+  <!-- reflet -->
+  <path d="M212 140 C 150 215, 150 320, 220 388"
+        fill="none" stroke="#FFF4C2" stroke-opacity="0.8"
+        stroke-width="12" stroke-linecap="round"/>
+
+  <!-- bout du haut (tige) -->
+  <ellipse cx="205" cy="108" rx="22" ry="16" fill="#6E4B22"/>
+  <!-- bout du bas -->
+  <ellipse cx="216" cy="412" rx="20" ry="14" fill="#7A4A1C"/>
+
+  <!-- ===== visage brainrot ===== -->
+  <!-- yeux globuleux -->
+  <g>
+    <circle cx="188" cy="232" r="40" fill="#FFFFFF" stroke="#3A2A12" stroke-width="6"/>
+    <circle cx="250" cy="222" r="44" fill="#FFFFFF" stroke="#3A2A12" stroke-width="6"/>
+    <circle cx="198" cy="244" r="17" fill="#1B130A"/>
+    <circle cx="262" cy="234" r="19" fill="#1B130A"/>
+    <circle cx="192" cy="237" r="6" fill="#FFFFFF"/>
+    <circle cx="256" cy="227" r="6" fill="#FFFFFF"/>
+  </g>
+
+  <!-- grand sourire -->
+  <path d="M170 300 Q 215 372 282 312"
+        fill="none" stroke="#3A2A12" stroke-width="14" stroke-linecap="round"/>
+  <!-- langue -->
+  <path d="M205 333 Q 228 350 248 326 Q 228 360 205 333 Z" fill="#E8607A"/>
+  </g>
+</svg>
