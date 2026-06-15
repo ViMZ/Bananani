@@ -37,6 +37,10 @@ ENV NODE_ENV=production \
 COPY --from=build /app/build ./build
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
+# Scripts de maintenance exécutables en prod via `fly ssh console -C "npm run db:seed-catalog"`.
+# (src/ + scripts/ sont du JS pur léger ; ils ne servent qu'aux scripts, pas au runtime `node build`.)
+COPY --from=build /app/src ./src
+COPY --from=build /app/scripts ./scripts
 
 # Volume pour SQLite + uploads (monté par fly)
 VOLUME /data
