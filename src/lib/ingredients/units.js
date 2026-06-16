@@ -18,6 +18,36 @@ const FAMILIES = {
   volume: { base: 'ml', units: { ml: 1, cl: 10, l: 1000 } }
 };
 
+/**
+ * Liste curée d'unités proposées à la saisie (combobox à liste fermée).
+ * Ordre : masse, volume, puis unités « pièce » courantes en cuisine.
+ * Les valeurs sont les formes canoniques (celles que `resolveUnit` reconnaît).
+ */
+export const UNITS = [
+  'g',
+  'kg',
+  'mg',
+  'ml',
+  'cl',
+  'l',
+  'pièce',
+  'c. à café',
+  'c. à soupe',
+  'pincée',
+  'gousse',
+  'tranche',
+  'botte',
+  'branche',
+  'feuille',
+  'sachet',
+  'boîte',
+  'verre',
+  'poignée',
+  'filet',
+  'goutte',
+  'zeste'
+];
+
 /** Alias de saisie → unité canonique d'une famille. */
 const ALIASES = {
   gr: 'g',

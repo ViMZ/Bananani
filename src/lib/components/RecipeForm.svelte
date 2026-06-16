@@ -1,6 +1,8 @@
 <script>
   import { normalizeName } from '$lib/ingredients/normalize';
   import { CATEGORIES } from '$lib/ingredients/categories';
+  import { UNITS } from '$lib/ingredients/units';
+  import Combobox from '$lib/components/Combobox.svelte';
 
   let {
     recipe = { title: '', description: '', servings: 2, instructions: '', photoPath: null },
@@ -15,6 +17,9 @@
   const byKey = new Map(
     catalog.map((e) => [e.normalizedKey, { unit: e.defaultUnit, category: e.category }])
   );
+
+  // Noms du catalogue, pour l'autocomplétion du champ « Nom ».
+  const catalogNames = catalog.map((e) => e.name);
 
   function blank() {
     return { name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '', category: '' };
@@ -52,18 +57,6 @@
     if (!item.category && entry.category) item.category = entry.category;
   }
 </script>
-
-<datalist id="ingredient-catalog">
-  {#each catalog as entry}
-    <option value={entry.name}></option>
-  {/each}
-</datalist>
-
-<datalist id="ingredient-categories">
-  {#each CATEGORIES as cat}
-    <option value={cat}></option>
-  {/each}
-</datalist>
 
 <form method="POST" enctype="multipart/form-data" class="space-y-10">
   <!-- Identité -->
@@ -124,14 +117,14 @@
           </span>
 
           <div class="grid sm:grid-cols-[1fr_100px_90px] gap-2 mb-2 mt-1">
-            <input class="input" name="ing_name" placeholder="Nom (ex. Pomodori pelati)" list="ingredient-catalog" required={idx === 0} bind:value={item.name} onchange={() => prefillFromCatalog(item)} />
+            <Combobox name="ing_name" options={catalogNames} placeholder="Nom (ex. Pomodori pelati)" required={idx === 0} bind:value={item.name} onselect={() => prefillFromCatalog(item)} />
             <input class="input font-mono text-center" name="ing_quantity" type="number" step="0.01" min="0" placeholder="Qté" bind:value={item.quantity} />
-            <input class="input font-mono" name="ing_unit" placeholder="g / ml" bind:value={item.unit} />
+            <Combobox name="ing_unit" options={UNITS} strict placeholder="Unité" inputClass="input font-mono" bind:value={item.unit} />
           </div>
           <div class="grid sm:grid-cols-3 gap-2 mb-2">
             <input class="input" name="ing_brand" placeholder="Marque (ex. Mutti)" bind:value={item.brand} />
             <input class="input font-mono text-sm" name="ing_product_reference" placeholder="Référence produit" bind:value={item.productReference} />
-            <input class="input" name="ing_category" placeholder="Rayon (ex. Épicerie salée)" list="ingredient-categories" bind:value={item.category} />
+            <Combobox name="ing_category" options={CATEGORIES} strict placeholder="Rayon (ex. Épicerie salée)" bind:value={item.category} />
           </div>
           <div class="flex items-start gap-2">
             <input class="input flex-1 italic" name="ing_notes" placeholder="Notes (optionnel)" bind:value={item.notes} />
