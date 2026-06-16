@@ -1,6 +1,6 @@
 import { db } from './db/index.js';
 import { recipes, recipeIngredients } from './db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, inArray, desc } from 'drizzle-orm';
 import { generateRecipeCode } from './codes.js';
 import { savePhoto, deletePhoto } from './uploads.js';
 import { resolveOrCreate } from './ingredients/catalog.js';
@@ -151,6 +151,28 @@ export async function getRecipeWithIngredients(id) {
     .where(eq(recipeIngredients.recipeId, id))
     .orderBy(recipeIngredients.position);
   return { recipe: r[0], ingredients: ings };
+}
+
+/**
+ * Recettes pour la planche imprimable (photo + titre + QR), sans les ingrédients.
+ * Si `ids` est fourni, ne renvoie que ces recettes, dans l'ordre des ids reçus
+ * (inArray ne garantit pas l'ordre SQL). Sinon, toutes, du plus récent au plus ancien.
+ * @param {number[] | null} ids
+ */
+export async function getRecipesForCards(ids) {
+  const cols = {
+    id: recipes.id,
+    code: recipes.code,
+    title: recipes.title,
+    description: recipes.description,
+    photoPath: recipes.photoPath
+  };
+  if (ids && ids.length > 0) {
+    const rows = await db.select(cols).from(recipes).where(inArray(recipes.id, ids));
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return ids.map((id) => byId.get(id)).filter(Boolean);
+  }
+  return db.select(cols).from(recipes).orderBy(desc(recipes.createdAt));
 }
 
 /** @param {string} code */

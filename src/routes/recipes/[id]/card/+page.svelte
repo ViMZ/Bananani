@@ -77,8 +77,8 @@
       </div>
     </div>
 
-    <!-- Section ingrédients -->
-    <section class="flex-1 overflow-hidden">
+    <!-- Section ingrédients (masquée à l'impression : la fiche frigo sert à scanner) -->
+    <section class="flex-1 overflow-hidden no-print">
       <div class="flex items-baseline gap-4 mb-4">
         <h2 class="h-display italic text-2xl text-mare">Gli ingredienti</h2>
         <span class="flex-1 h-px bg-mare/30"></span>
@@ -131,9 +131,21 @@
 
 <style>
   @media print {
-    :global(header), :global(footer), :global(.no-print) { display: none !important; }
+    /* Le header + footer + nav du layout portent déjà .no-print ; ne PAS cibler
+       header/footer génériques, sinon on cache aussi le <header> (titre + feuille)
+       et le <footer> (code-barres) internes de la fiche. */
+    :global(.no-print) { display: none !important; }
     :global(main) { padding: 0 !important; max-width: 100% !important; }
     :global(body) { background: white !important; background-image: none !important; }
-    .fiche { box-shadow: none !important; }
+    /* Forcer le navigateur à imprimer les fonds + bordures colorés de la fiche
+       (sinon il les supprime pour économiser l'encre → version dépouillée). */
+    .fiche {
+      box-shadow: none !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    /* La section ingrédients (flex-1) qui poussait le footer en bas est masquée :
+       on garde le code-barres en pied de fiche. */
+    .fiche footer { margin-top: auto !important; }
   }
 </style>
