@@ -1,9 +1,41 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
 import { getRecipeByCode } from '$lib/server/recipes';
 import { db } from '$lib/server/db';
 import { shoppingItems } from '$lib/server/db/schema';
 
+/** Renvoie true si au moins une ligne de la liste de courses provient de cette recette. */
+async function recipeInList(recipeId) {
+  const rows = await db
+    .select({ id: shoppingItems.id })
+    .from(shoppingItems)
+    .where(eq(shoppingItems.recipeId, recipeId))
+    .limit(1);
+  return rows.length > 0;
+}
+
 export const actions = {
+  // Lecture seule : retrouve la recette pour prévisualisation (aucune insertion).
+  lookup: async ({ request }) => {
+    const formData = await request.formData();
+    const code = String(formData.get('code') ?? '').trim().toUpperCase();
+    if (!code) return fail(400, { error: 'Code manquant' });
+
+    const data = await getRecipeByCode(code);
+    if (!data) return fail(404, { error: `Aucune recette trouvée pour le code « ${code} »`, code });
+
+    const { recipe, ingredients } = data;
+    return {
+      recipe,
+      ingredients,
+      code: recipe.code,
+      recipeTitle: recipe.title,
+      alreadyInList: await recipeInList(recipe.id),
+      empty: ingredients.length === 0
+    };
+  },
+
+  // Écriture : ajoute réellement les ingrédients à la liste de courses.
   add: async ({ request }) => {
     const formData = await request.formData();
     const code = String(formData.get('code') ?? '').trim().toUpperCase();
@@ -15,6 +47,9 @@ export const actions = {
     const { recipe, ingredients } = data;
     if (ingredients.length === 0) {
       return { added: 0, recipeTitle: recipe.title, code: recipe.code, empty: true };
+    }
+    if (await recipeInList(recipe.id)) {
+      return { added: 0, recipeTitle: recipe.title, code: recipe.code, alreadyInList: true };
     }
 
     await db.insert(shoppingItems).values(

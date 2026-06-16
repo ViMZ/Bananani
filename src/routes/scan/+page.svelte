@@ -1,11 +1,8 @@
 <script>
   import { onDestroy } from 'svelte';
-  import { enhance } from '$app/forms';
   import { deserialize } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import Sprig from '$lib/components/Sprig.svelte';
-
-  let { form } = $props();
 
   let videoEl;
   let scanning = $state(false);
@@ -16,12 +13,21 @@
 
   let manualCode = $state('');
   let recentScans = $state([]);
-  /** @type {Set<string>} codes déjà soumis pendant la session caméra en cours */
+  /** @type {Set<string>} codes déjà scannés par la caméra pendant la session en cours */
   let sessionCodes = new Set();
 
-  /** Feedback visuel après scan caméra réussi (le `form` prop ne se met à jour qu'au form submit, pas au fetch) */
-  let scanFeedback = $state(/** @type {null | { kind: 'ok' | 'empty' | 'error', recipeTitle?: string, added?: number, code?: string, message?: string }} */ (null));
+  /** Recette en attente de confirmation (card affichée). @type {null | { recipe: any, ingredients: any[] }} */
+  let pendingRecipe = $state(null);
+  /** Opération réseau en cours (lookup ou add) — sert aussi de garde. */
+  let busy = $state(false);
+
+  /** Feedback visuel du dernier scan / de la dernière action. */
+  let scanFeedback = $state(/** @type {null | { kind: 'ok' | 'empty' | 'error' | 'already', recipeTitle?: string, added?: number, code?: string, message?: string }} */ (null));
   let feedbackTimeout = null;
+
+  const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+    'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+  const roman = (n) => romanNumerals[n - 1] || String(n);
 
   async function startCamera() {
     cameraError = '';
@@ -46,14 +52,9 @@
 
       controls = await reader.decodeFromConstraints(constraints, videoEl, (result /*, err */) => {
         frames++;
-        // Les erreurs par frame sont normales (NotFoundException = pas de QR dans la frame).
-        // Les vraies pannes caméra arrivent dans le try/catch externe, pas ici.
         if (result) {
           const text = result.getText();
-          if (text && !sessionCodes.has(text)) {
-            sessionCodes.add(text);
-            submitCode(text);
-          }
+          if (text) handleCode(text, { dedup: true });
         }
       });
     } catch (err) {
@@ -79,7 +80,67 @@
     }
   }
 
-  async function submitCode(code) {
+  function pushRecent(code, recipeTitle) {
+    recentScans = [
+      { code, time: new Date().toLocaleTimeString(), recipeTitle },
+      ...recentScans
+    ].slice(0, 10);
+  }
+
+  /**
+   * Prévisualise une recette à partir d'un code (lecture seule).
+   * @param {string} code
+   * @param {{ dedup?: boolean }} [opts] dedup=true pour les scans caméra (anti-doublon de frames).
+   */
+  async function handleCode(code, { dedup = false } = {}) {
+    if (pendingRecipe || busy) return; // une seule card / opération à la fois
+    const c = code.trim().toUpperCase();
+    if (!c) return;
+    if (dedup) {
+      if (sessionCodes.has(c)) return;
+      sessionCodes.add(c);
+    }
+
+    busy = true;
+    try {
+      const fd = new FormData();
+      fd.append('code', c);
+      const res = await fetch('?/lookup', { method: 'POST', body: fd });
+      const parsed = deserialize(await res.text());
+
+      if (parsed.type === 'success' && parsed.data) {
+        const data = /** @type {any} */ (parsed.data);
+        if (data.alreadyInList) {
+          setFeedback({ kind: 'already', recipeTitle: data.recipeTitle, code: data.code });
+          pushRecent(c, data.recipeTitle);
+          manualCode = '';
+        } else if (data.empty) {
+          setFeedback({ kind: 'empty', recipeTitle: data.recipeTitle, code: data.code });
+          pushRecent(c, data.recipeTitle);
+          manualCode = '';
+        } else {
+          pendingRecipe = { recipe: data.recipe, ingredients: data.ingredients };
+          scanFeedback = null;
+          manualCode = '';
+        }
+      } else if (parsed.type === 'failure' && parsed.data) {
+        setFeedback({ kind: 'error', message: /** @type {any} */ (parsed.data).error ?? 'Code inconnu', code: c });
+      } else {
+        setFeedback({ kind: 'error', message: 'Réponse inattendue du serveur', code: c });
+      }
+    } catch (e) {
+      setFeedback({ kind: 'error', message: e instanceof Error ? e.message : 'Erreur réseau', code: c });
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** Confirme l'ajout de la recette en attente à la liste de courses. */
+  async function confirmAdd() {
+    if (!pendingRecipe || busy) return;
+    const code = pendingRecipe.recipe.code;
+    const title = pendingRecipe.recipe.title;
+    busy = true;
     try {
       const fd = new FormData();
       fd.append('code', code);
@@ -88,27 +149,34 @@
 
       if (parsed.type === 'success' && parsed.data) {
         const data = /** @type {any} */ (parsed.data);
-        setFeedback({
-          kind: data.empty ? 'empty' : 'ok',
-          recipeTitle: data.recipeTitle,
-          added: data.added,
-          code: data.code ?? code
-        });
-        recentScans = [
-          { code, time: new Date().toLocaleTimeString(), recipeTitle: data.recipeTitle },
-          ...recentScans
-        ].slice(0, 10);
+        if (data.alreadyInList) {
+          setFeedback({ kind: 'already', recipeTitle: data.recipeTitle ?? title, code });
+        } else if (data.empty) {
+          setFeedback({ kind: 'empty', recipeTitle: data.recipeTitle ?? title, code });
+        } else {
+          setFeedback({ kind: 'ok', recipeTitle: data.recipeTitle ?? title, added: data.added, code });
+        }
+        pushRecent(code, data.recipeTitle ?? title);
       } else if (parsed.type === 'failure' && parsed.data) {
-        const data = /** @type {any} */ (parsed.data);
-        setFeedback({ kind: 'error', message: data.error ?? 'Code inconnu', code });
-      } else {
-        setFeedback({ kind: 'error', message: 'Réponse inattendue du serveur', code });
+        setFeedback({ kind: 'error', message: /** @type {any} */ (parsed.data).error ?? 'Erreur', code });
       }
 
+      pendingRecipe = null;
       await invalidateAll();
     } catch (e) {
       setFeedback({ kind: 'error', message: e instanceof Error ? e.message : 'Erreur réseau', code });
+    } finally {
+      busy = false;
     }
+  }
+
+  function cancelCard() {
+    pendingRecipe = null;
+  }
+
+  function submitManual(e) {
+    e.preventDefault();
+    handleCode(manualCode);
   }
 
   onDestroy(() => {
@@ -185,28 +253,6 @@
       {/if}
     </div>
 
-    <!-- Feedback du dernier scan caméra -->
-    {#if scanFeedback}
-      {#if scanFeedback.kind === 'ok'}
-        <div class="mt-4 p-3 rounded bg-oliva-soft/50 border border-oliva/30 text-sm animate-fade-in">
-          <span class="font-display italic text-oliva text-base">Bene !</span>
-          <span class="text-umber">
-            {scanFeedback.added} ingrédient{scanFeedback.added > 1 ? 's' : ''} de
-            <span class="font-medium">« {scanFeedback.recipeTitle} »</span> ajouté{scanFeedback.added > 1 ? 's' : ''}.
-          </span>
-        </div>
-      {:else if scanFeedback.kind === 'empty'}
-        <div class="mt-4 p-3 rounded bg-limone-soft/40 border border-limone/40 text-sm italic animate-fade-in">
-          « {scanFeedback.recipeTitle} » : aucune ingrédient à ajouter.
-        </div>
-      {:else}
-        <div class="mt-4 p-3 rounded bg-terra-soft/60 border border-terra/30 text-sm italic animate-fade-in">
-          Erreur : {scanFeedback.message}
-          {#if scanFeedback.code}<span class="font-mono not-italic"> ({scanFeedback.code})</span>{/if}
-        </div>
-      {/if}
-    {/if}
-
     <p class="text-xs italic text-sepia mt-3">
       Autoriser l'accès caméra · sur mobile, HTTPS recommandé.
     </p>
@@ -216,16 +262,7 @@
   <section class="card-sand">
     <div class="h-eyebrow mb-4">— À la main</div>
 
-    <form
-      method="POST"
-      action="?/add"
-      use:enhance={() => {
-        return async ({ result, update }) => {
-          await update();
-          if (result.type === 'success') manualCode = '';
-        };
-      }}
-    >
+    <form onsubmit={submitManual}>
       <label class="label" for="code-input">Code de la fiche</label>
       <input
         id="code-input"
@@ -236,29 +273,36 @@
         required
         autocomplete="off"
       />
-      <button class="btn-primary w-full">Ajouter aux courses →</button>
+      <button class="btn-primary w-full" disabled={busy}>Voir la recette →</button>
     </form>
-
-    {#if form?.error}
-      <div class="mt-4 p-3 rounded bg-terra-soft/60 border border-terra/30 text-sm italic animate-fade-in">
-        Erreur : {form.error}
-      </div>
-    {/if}
-    {#if form?.added > 0}
-      <div class="mt-4 p-3 rounded bg-oliva-soft/50 border border-oliva/30 text-sm animate-fade-in">
-        <span class="font-display italic text-oliva text-base">Bene !</span>
-        <span class="text-umber">
-          {form.added} ingrédient{form.added > 1 ? 's' : ''} de « {form.recipeTitle} » ajouté{form.added > 1 ? 's' : ''}.
-        </span>
-      </div>
-    {/if}
-    {#if form?.empty}
-      <div class="mt-4 p-3 rounded bg-limone-soft/40 border border-limone/40 text-sm italic">
-        « {form.recipeTitle} » sans ingrédient.
-      </div>
-    {/if}
   </section>
 </div>
+
+<!-- Feedback partagé (caméra + saisie manuelle) -->
+{#if scanFeedback}
+  {#if scanFeedback.kind === 'ok'}
+    <div class="mt-6 p-3 rounded bg-oliva-soft/50 border border-oliva/30 text-sm animate-fade-in">
+      <span class="font-display italic text-oliva text-base">Bene !</span>
+      <span class="text-umber">
+        {scanFeedback.added} ingrédient{scanFeedback.added > 1 ? 's' : ''} de
+        <span class="font-medium">« {scanFeedback.recipeTitle} »</span> ajouté{scanFeedback.added > 1 ? 's' : ''}.
+      </span>
+    </div>
+  {:else if scanFeedback.kind === 'already'}
+    <div class="mt-6 p-3 rounded bg-limone-soft/40 border border-limone/40 text-sm italic animate-fade-in">
+      « {scanFeedback.recipeTitle} » est déjà dans la liste de courses.
+    </div>
+  {:else if scanFeedback.kind === 'empty'}
+    <div class="mt-6 p-3 rounded bg-limone-soft/40 border border-limone/40 text-sm italic animate-fade-in">
+      « {scanFeedback.recipeTitle} » : aucun ingrédient à ajouter.
+    </div>
+  {:else}
+    <div class="mt-6 p-3 rounded bg-terra-soft/60 border border-terra/30 text-sm italic animate-fade-in">
+      Erreur : {scanFeedback.message}
+      {#if scanFeedback.code}<span class="font-mono not-italic"> ({scanFeedback.code})</span>{/if}
+    </div>
+  {/if}
+{/if}
 
 {#if recentScans.length > 0}
   <section class="mt-12">
@@ -285,3 +329,65 @@
 <div class="mt-12 text-center no-print">
   <a href="/shopping" class="link">Voir la liste de courses →</a>
 </div>
+
+<!-- Card de prévisualisation de la recette scannée -->
+{#if pendingRecipe}
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-umber/40 backdrop-blur-sm animate-fade-in"
+    role="dialog"
+    aria-modal="true"
+  >
+    <div class="card max-w-lg w-full max-h-[90vh] overflow-auto">
+      <div class="flex gap-4 items-start mb-5">
+        {#if pendingRecipe.recipe.photoPath}
+          <img
+            src={pendingRecipe.recipe.photoPath}
+            alt={pendingRecipe.recipe.title}
+            class="w-24 h-24 object-cover rounded border border-umber/15 shrink-0"
+          />
+        {:else}
+          <div class="w-24 h-24 rounded bg-sand flex items-center justify-center shrink-0">
+            <span class="font-display italic text-3xl text-sepia">N°</span>
+          </div>
+        {/if}
+        <div class="min-w-0">
+          <h2 class="h-display text-3xl italic leading-tight text-balance">{pendingRecipe.recipe.title}</h2>
+          {#if pendingRecipe.recipe.owner}
+            <p class="font-display italic text-mare text-sm mt-1">de {pendingRecipe.recipe.owner}</p>
+          {/if}
+          <p class="h-eyebrow mt-2">
+            {pendingRecipe.recipe.servings} pers · {pendingRecipe.ingredients.length} ingrédient{pendingRecipe.ingredients.length > 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+
+      <ul class="space-y-2 mb-6 max-h-[40vh] overflow-auto pr-1">
+        {#each pendingRecipe.ingredients as i, idx}
+          <li class="grid grid-cols-[28px_1fr_auto] gap-3 items-baseline pb-2 border-b border-umber/10 last:border-0">
+            <span class="font-display italic text-mare">{roman(idx + 1)}</span>
+            <div class="min-w-0">
+              <span class="font-sans text-sm font-medium">{i.name}</span>
+              {#if i.brand || i.productReference}
+                <div class="font-mono text-[10px] uppercase tracking-wider text-sepia">
+                  {[i.brand, i.productReference].filter(Boolean).join(' · ')}
+                </div>
+              {/if}
+            </div>
+            {#if i.quantity}
+              <span class="font-display text-umber whitespace-nowrap">
+                {i.quantity}<span class="text-sepia text-xs font-sans">{i.unit}</span>
+              </span>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+
+      <div class="flex gap-2">
+        <button class="btn-primary flex-1" onclick={confirmAdd} disabled={busy}>
+          ＋ Ajouter à la liste de courses
+        </button>
+        <button class="btn-secondary" onclick={cancelCard} disabled={busy}>Annuler</button>
+      </div>
+    </div>
+  </div>
+{/if}
