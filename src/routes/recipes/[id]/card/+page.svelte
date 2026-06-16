@@ -20,7 +20,7 @@
 </div>
 
 <!-- La carta (carte type menu de trattoria) -->
-<article class="fiche relative mx-auto max-w-[760px] bg-panna shadow-soft-lg print-page" style="aspect-ratio: 1 / 1.414;">
+<article class="fiche relative mx-auto max-w-[760px] bg-panna shadow-soft-lg">
   <!-- Cadre double : bordure intérieure en deuxième -->
   <div class="absolute inset-3 border border-mare/40 pointer-events-none"></div>
   <div class="absolute inset-[14px] border border-umber/15 pointer-events-none"></div>
@@ -134,7 +134,24 @@
 </article>
 
 <style>
+  /* Allure feuille A4 à l'écran — mais seulement sur écran assez large.
+     Sur mobile, l'aspect-ratio fixe imposait une hauteur trop courte pour le
+     contenu, qui débordait du cadre : on laisse alors la hauteur s'adapter. */
+  .fiche {
+    aspect-ratio: 1 / 1.414;
+  }
+  @media (max-width: 639px) {
+    .fiche {
+      aspect-ratio: auto;
+    }
+  }
+
   @media print {
+    /* Une fiche = exactement une page A4, sans débordement ni page vide. */
+    @page {
+      size: A4;
+      margin: 12mm;
+    }
     /* Le header + footer + nav du layout portent déjà .no-print ; ne PAS cibler
        header/footer génériques, sinon on cache aussi le <header> (titre + feuille)
        et le <footer> (code-barres) internes de la fiche. */
@@ -144,7 +161,15 @@
     /* Forcer le navigateur à imprimer les fonds + bordures colorés de la fiche
        (sinon il les supprime pour économiser l'encre → version dépouillée). */
     .fiche {
+      /* Caler la fiche sur la page (aspect-ratio retiré, hauteur = zone
+         imprimable A4 moins marges) → tient sur UNE page, pas de débordement. */
+      aspect-ratio: auto !important;
+      width: 100% !important;
+      max-width: none !important;
+      height: 271mm !important;
       box-shadow: none !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
