@@ -76,7 +76,7 @@
               <img src={r.photoPath} alt={r.title} class="w-full aspect-[4/3] object-cover" />
             {:else}
               <div class="w-full aspect-[4/3] bg-sand flex items-center justify-center">
-                <span class="font-display italic text-5xl text-sepia">N°</span>
+                <span class="font-display italic text-xl text-sepia">Nessuna foto</span>
               </div>
             {/if}
             <div class="p-5">
