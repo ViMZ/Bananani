@@ -77,3 +77,7 @@ Pas de tests configurés à ce stade.
 - **Unité/rayon = liste fermée, nom = libre.** Dans `RecipeForm`, les trois champs à suggestions passent par `Combobox.svelte` (autocomplétion maison qui remplace le `<datalist>` natif, inutilisable sur mobile — chevauchait le clavier, hauteur incontrôlable). Le champ **Nom** est ouvert (`Combobox` non strict : on peut créer un nouvel ingrédient). Les champs **Unité** (liste curée `UNITS` dans `units.js`) et **Rayon** (`CATEGORIES`) sont en `strict` : toute saisie hors liste est effacée à la perte de focus (une valeur vide reste permise = « aucune »). La flexibilité métier est préservée *dans* la liste (tomates en `pièce` ou en `g`), mais on n'accepte plus de texte libre qui créerait des doublons (« gr »/« g », « Epicerie »/« Épicerie salée »). Si une unité manque, l'ajouter à `UNITS`. L'agrégation gère toujours les familles d'unités incompatibles en sous-lignes.
 - **Codes-barres = Code 128 sur le `code` interne**, pas EAN-13. Si on veut étendre vers les vrais codes-barres produit (pour scanner des emballages au lieu de fiches), c'est une fonctionnalité distincte, ne pas mélanger.
 - **Scan caméra** : `@zxing/browser` import dynamique côté client uniquement (`onMount`). Sur mobile la caméra exige HTTPS en prod.
+
+## Git
+
+- **Ne JAMAIS ajouter de ligne `Co-Authored-By`** dans les messages de commit (ni mention d'outil/d'assistant). Les commits ne contiennent que la description du changement.
