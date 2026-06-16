@@ -44,13 +44,17 @@
       <div class="font-display text-5xl md:text-6xl leading-none transition-colors {data.pendingShoppingCount > 0 ? 'text-terra group-hover:text-terra/80' : 'text-mare group-hover:text-mare-deep'}">
         {data.pendingShoppingCount}
       </div>
-      <div class="h-eyebrow mt-2">À acheter</div>
+      <div class="h-eyebrow mt-2">Ingredienti</div>
+      <div class="h-eyebrow mt-2">dans la liste de courses</div>
     </a>
     <a href="/scan" class="block group">
       <div class="font-display italic text-4xl md:text-5xl text-oliva leading-tight group-hover:text-oliva/80 transition-colors">
-        scan&nbsp;→
+        scanner
       </div>
-      <div class="h-eyebrow mt-2">Aux courses</div>
+      <div class="h-eyebrow mt-2">des recettes sur mon frigo</div>
+      <div class="font-display italic text-4xl md:text-5xl text-oliva leading-tight group-hover:text-oliva/80 transition-colors">
+        &nbsp;→
+      </div>
     </a>
   </div>
 

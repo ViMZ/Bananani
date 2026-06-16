@@ -189,7 +189,7 @@
   <div class="h-eyebrow mb-2">Capture</div>
   <h1 class="h-display text-5xl md:text-6xl italic">Scanner</h1>
   <p class="text-sepia italic mt-2">
-    Pointe la caméra sur une fiche, ou tape le code BAN-XXXXXX
+    Pour voir la recette et ajouter les ingrédients à la liste de courses.
   </p>
   <div class="flex justify-center mt-4">
     <Sprig width={120} />
