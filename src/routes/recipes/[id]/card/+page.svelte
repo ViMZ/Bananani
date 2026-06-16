@@ -1,6 +1,5 @@
 <script>
   import Barcode from '$lib/components/Barcode.svelte';
-  import Seal from '$lib/components/Seal.svelte';
   import Sprig from '$lib/components/Sprig.svelte';
 
   let { data } = $props();
@@ -16,7 +15,7 @@
 
 <div class="no-print flex items-center justify-between gap-4 mb-8">
   <a href="/recipes/{recipe.id}" class="btn-secondary">← Retour</a>
-  <button class="btn-primary" onclick={print}>🍋 Imprimer la fiche</button>
+  <button class="btn-primary" onclick={print}>🍋 Imprimer la recette</button>
 </div>
 
 <!-- La carta (carte type menu de trattoria) -->
@@ -25,30 +24,30 @@
   <div class="absolute inset-3 border border-mare/40 pointer-events-none"></div>
   <div class="absolute inset-[14px] border border-umber/15 pointer-events-none"></div>
 
-  <div class="relative h-full flex flex-col p-9 md:p-12">
+  <div class="relative h-full flex flex-col p-7 md:p-9">
     <!-- Bandeau d'en-tête -->
-    <header class="text-center pb-6">
+    <header class="text-center pb-3">
       <div class="h-eyebrow text-mare mb-2">La Casa di Bananani · N° {recipe.id.toString().padStart(4, '0')}</div>
 
-      <h1 class="h-display text-4xl md:text-5xl italic text-balance leading-[1.05]">
+      <h1 class="h-display text-3xl md:text-4xl italic text-balance leading-[1.05]">
         {recipe.title}
       </h1>
 
       {#if recipe.description}
-        <p class="font-display italic text-base text-sepia mt-2">{recipe.description}</p>
+        <p class="font-display italic text-sm text-sepia mt-1">{recipe.description}</p>
       {/if}
 
       {#if recipe.owner}
-        <p class="font-display italic text-base text-mare mt-2">de {recipe.owner}</p>
+        <p class="font-display italic text-sm text-mare mt-1">de {recipe.owner}</p>
       {/if}
 
-      <div class="flex justify-center mt-3">
-        <Sprig width={140} />
+      <div class="flex justify-center mt-2">
+        <Sprig width={110} />
       </div>
     </header>
 
     <!-- Photo + meta -->
-    <div class="grid grid-cols-[160px_1fr] md:grid-cols-[200px_1fr] gap-6 mb-6 items-start">
+    <div class="grid grid-cols-[120px_1fr] md:grid-cols-[150px_1fr] gap-5 mb-4 items-start">
       {#if recipe.photoPath}
         <div class="bg-panna p-2 shadow-soft border border-umber/15">
           <img src={recipe.photoPath} alt={recipe.title} class="w-full aspect-square object-cover" />
@@ -56,68 +55,78 @@
       {:else}
         <div class="bg-panna p-2 shadow-soft border border-umber/15">
           <div class="w-full aspect-square bg-sand flex items-center justify-center">
-            <span class="font-display italic text-5xl text-sepia">N°</span>
+            <span class="font-display italic text-4xl text-sepia">N°</span>
           </div>
         </div>
       {/if}
 
-      <div class="space-y-2 text-sm">
-        <div class="flex items-baseline justify-between border-b border-dotted border-umber/30 pb-1.5">
+      <div class="space-y-1.5 text-sm">
+        <div class="flex items-baseline justify-between border-b border-dotted border-umber/30 pb-1">
           <span class="text-sepia italic">Pour</span>
-          <span class="font-display text-xl text-umber">{recipe.servings} <span class="text-sm font-sans text-sepia">personnes</span></span>
+          <span class="font-display text-lg text-umber">{recipe.servings} <span class="text-sm font-sans text-sepia">personnes</span></span>
         </div>
-        <div class="flex items-baseline justify-between border-b border-dotted border-umber/30 pb-1.5">
+        <div class="flex items-baseline justify-between border-b border-dotted border-umber/30 pb-1">
           <span class="text-sepia italic">Ingredienti</span>
-          <span class="font-display text-xl text-umber">{ingredients.length}</span>
+          <span class="font-display text-lg text-umber">{ingredients.length}</span>
         </div>
-        <div class="flex items-baseline justify-between border-b border-dotted border-umber/30 pb-1.5">
-          <span class="text-sepia italic">Code</span>
-          <span class="font-mono text-xs tracking-wider text-umber">{recipe.code}</span>
-        </div>
-        <div class="pt-2 text-xs italic text-sepia leading-relaxed">
+        <div class="pt-1 text-xs italic text-sepia leading-relaxed">
           Recette de la maison.<br />
-          À conserver précieusement sur le frigo.
+          À ranger dans le classeur de recettes.
         </div>
       </div>
     </div>
 
-    <!-- Section ingrédients (masquée à l'impression : la fiche frigo sert à scanner) -->
-    <section class="flex-1 overflow-hidden no-print">
-      <div class="flex items-baseline gap-4 mb-4">
-        <h2 class="h-display italic text-2xl text-mare">Gli ingredienti</h2>
-        <span class="flex-1 h-px bg-mare/30"></span>
-        <span class="h-eyebrow text-mare">{ingredients.length}</span>
-      </div>
+    <!-- Corps : ingrédients (colonne étroite) + préparation (colonne large) -->
+    <div class="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-6 overflow-hidden">
+      <!-- Ingrédients -->
+      <section class="min-w-0">
+        <div class="flex items-baseline gap-3 mb-3">
+          <h2 class="h-display italic text-xl text-mare">Gli ingredienti</h2>
+          <span class="flex-1 h-px bg-mare/30"></span>
+          <span class="h-eyebrow text-mare">{ingredients.length}</span>
+        </div>
 
-      {#if ingredients.length === 0}
-        <p class="text-sepia italic text-sm">Rien — pas d'ingrédient.</p>
-      {:else}
-        <ul class="columns-2 gap-8 text-[13px] leading-snug">
-          {#each ingredients as i, idx}
-            <li class="break-inside-avoid mb-3 grid grid-cols-[26px_1fr] gap-1.5">
-              <span class="font-display italic text-mare pt-0.5">{romanNumerals[idx] || idx + 1}</span>
-              <div>
-                <span class="font-sans font-medium text-umber">{i.name}</span>
-                {#if i.quantity}
-                  <span class="font-display text-umber"> — {i.quantity}<span class="text-sepia font-sans text-[11px]">{i.unit}</span></span>
-                {/if}
-                {#if i.brand || i.productReference}
-                  <div class="font-mono text-[10px] uppercase tracking-wider text-sepia">
-                    {[i.brand, i.productReference].filter(Boolean).join(' · ')}
-                  </div>
-                {/if}
-              </div>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
+        {#if ingredients.length === 0}
+          <p class="text-sepia italic text-sm">Rien — pas d'ingrédient.</p>
+        {:else}
+          <ul class="space-y-2 text-[12px] leading-snug">
+            {#each ingredients as i, idx}
+              <li class="grid grid-cols-[22px_1fr] gap-1.5">
+                <span class="font-display italic text-mare">{romanNumerals[idx] || idx + 1}</span>
+                <div>
+                  <span class="font-sans font-medium text-umber">{i.name}</span>
+                  {#if i.quantity}
+                    <span class="font-display text-umber"> — {i.quantity}<span class="text-sepia font-sans text-[11px]">{i.unit}</span></span>
+                  {/if}
+                  {#if i.brand || i.productReference}
+                    <div class="font-mono text-[10px] uppercase tracking-wider text-sepia">
+                      {[i.brand, i.productReference].filter(Boolean).join(' · ')}
+                    </div>
+                  {/if}
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
 
-    <!-- Pied avec code-barres + seal -->
-    <footer class="mt-6 pt-5 border-t border-mare/30 grid grid-cols-[auto_1fr_auto] gap-5 items-center">
-      <Seal code={recipe.code} label="Code" size={100} />
+      <!-- Préparation -->
+      <section class="min-w-0">
+        <div class="flex items-baseline gap-3 mb-3">
+          <h2 class="h-display italic text-xl text-mare">La preparazione</h2>
+          <span class="flex-1 h-px bg-mare/30"></span>
+        </div>
+        {#if recipe.instructions?.trim()}
+          <div class="font-sans whitespace-pre-wrap leading-relaxed text-[12.5px] text-umber/90">{recipe.instructions}</div>
+        {:else}
+          <p class="text-sepia italic text-sm">Pas d'étapes renseignées.</p>
+        {/if}
+      </section>
+    </div>
 
-      <div class="text-center">
+    <!-- Pied avec code-barres -->
+    <footer class="mt-4 pt-3 border-t border-mare/30 flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-between sm:text-left">
+      <div>
         <div class="h-eyebrow text-terra mb-1">Scannez ce code</div>
         <div class="font-display italic text-base text-umber leading-tight">
           Tutti gli ingredienti<br />
@@ -125,9 +134,9 @@
         </div>
       </div>
 
-      <div class="bg-white border border-umber/30 p-2.5 text-center shadow-soft">
-        <Barcode value={recipe.code} svg={data.qrSvg} size={120} />
-        <div class="font-mono text-[10px] tracking-widest mt-1.5 text-umber">{recipe.code}</div>
+      <div class="bg-white border border-umber/30 p-2 text-center shadow-soft shrink-0">
+        <Barcode value={recipe.code} svg={data.qrSvg} size={96} />
+        <div class="font-mono text-[10px] tracking-widest mt-1 text-umber">{recipe.code}</div>
       </div>
     </footer>
   </div>
@@ -147,34 +156,28 @@
   }
 
   @media print {
-    /* Une fiche = exactement une page A4, sans débordement ni page vide. */
+    /* Reset structurel (html/body/main/no-print, neutralisation du min-h-screen
+       du layout) → assuré globalement dans app.css. Ici, juste le calage A4. */
     @page {
       size: A4;
-      margin: 12mm;
+      margin: 0;
     }
-    /* Le header + footer + nav du layout portent déjà .no-print ; ne PAS cibler
-       header/footer génériques, sinon on cache aussi le <header> (titre + feuille)
-       et le <footer> (code-barres) internes de la fiche. */
-    :global(.no-print) { display: none !important; }
-    :global(main) { padding: 0 !important; max-width: 100% !important; }
-    :global(body) { background: white !important; background-image: none !important; }
-    /* Forcer le navigateur à imprimer les fonds + bordures colorés de la fiche
-       (sinon il les supprime pour économiser l'encre → version dépouillée). */
+    /* Caler la recette sur une page A4 exacte (210×296mm, un poil sous 297 pour
+       absorber l'arrondi). overflow caché = aucun débordement → UNE seule page
+       (le contenu est condensé pour tenir). print-color-adjust conserve les
+       fonds et bordures colorés. */
     .fiche {
-      /* Caler la fiche sur la page (aspect-ratio retiré, hauteur = zone
-         imprimable A4 moins marges) → tient sur UNE page, pas de débordement. */
       aspect-ratio: auto !important;
-      width: 100% !important;
+      width: 210mm !important;
       max-width: none !important;
-      height: 271mm !important;
+      height: 296mm !important;
+      margin: 0 auto !important;
+      overflow: hidden !important;
       box-shadow: none !important;
       page-break-after: avoid !important;
       break-after: avoid !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    /* La section ingrédients (flex-1) qui poussait le footer en bas est masquée :
-       on garde le code-barres en pied de fiche. */
-    .fiche footer { margin-top: auto !important; }
   }
 </style>

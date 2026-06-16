@@ -175,9 +175,21 @@
 
 /* === Print === */
 @media print {
-  body {
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
     background: white !important;
     background-image: none !important;
+  }
+  /* Le shell de layout porte min-h-screen + padding : à l'impression ce 100vh
+     ajoutait une page blanche. On le neutralise pour toutes les pages imprimables. */
+  .app-shell {
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
   }
   .no-print { display: none !important; }
   .shadow-soft, .shadow-soft-lg, .shadow-card, .shadow-seal {

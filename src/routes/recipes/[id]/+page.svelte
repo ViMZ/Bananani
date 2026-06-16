@@ -45,7 +45,7 @@
   <form method="POST" action="?/addToShopping">
     <button class="btn-primary">＋ Ajouter aux courses</button>
   </form>
-  <a href="/recipes/{recipe.id}/card" class="btn-lemon">🍋 Fiche imprimable</a>
+  <a href="/recipes/{recipe.id}/card" class="btn-lemon">🍋 Recette imprimable</a>
   <a href="/recipes/{recipe.id}/edit" class="btn-secondary">Modifier</a>
 </div>
 

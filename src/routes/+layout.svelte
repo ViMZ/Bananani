@@ -20,7 +20,7 @@
   let isAuthPage = $derived($page.url.pathname === '/login');
 </script>
 
-<div class="min-h-screen flex flex-col {isAuthPage ? '' : 'pb-20 md:pb-0'}">
+<div class="app-shell min-h-screen flex flex-col {isAuthPage ? '' : 'pb-20 md:pb-0'}">
   {#if !isAuthPage}
     <!-- Header desktop -->
     <header class="no-print bg-linen/80 backdrop-blur-sm border-b border-umber/15 sticky top-0 z-30">
