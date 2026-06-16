@@ -33,7 +33,7 @@
 </script>
 
 {#snippet card(r)}
-  <div class="bg-panna rounded-card overflow-hidden border border-umber/15 shadow-card group-hover:shadow-soft-lg transition-all duration-200 group-hover:-translate-y-0.5">
+  <div class="h-full flex flex-col bg-panna rounded-card overflow-hidden border border-umber/15 shadow-card group-hover:shadow-soft-lg transition-all duration-200 group-hover:-translate-y-0.5">
     {#if r.photoPath}
       <img src={r.photoPath} alt={r.title} class="w-full aspect-[4/3] object-cover" />
     {:else}
@@ -41,7 +41,7 @@
         <span class="font-display italic text-5xl text-sepia">N°</span>
       </div>
     {/if}
-    <div class="p-5">
+    <div class="p-5 flex-1 flex flex-col">
       <h3 class="h-display text-2xl leading-tight text-balance">{r.title}</h3>
       {#if r.description}
         <p class="text-sm text-sepia italic mt-1 line-clamp-1">{r.description}</p>
@@ -49,7 +49,7 @@
       {#if r.owner}
         <p class="font-display italic text-mare text-sm mt-1">de {r.owner}</p>
       {/if}
-      <div class="mt-3 flex items-center justify-between">
+      <div class="mt-auto pt-3 flex items-center justify-between">
         <span class="codice flex items-center gap-1.5">
           <span class="text-limone">✦</span>
           {r.code}
@@ -125,7 +125,7 @@
       {#if selectMode}
         <button
           type="button"
-          class="block w-full text-left group relative"
+          class="block w-full h-full text-left group relative"
           aria-pressed={selected.has(r.id)}
           onclick={() => toggle(r.id)}
         >
@@ -138,12 +138,12 @@
           >
             {selected.has(r.id) ? '✓' : ''}
           </span>
-          <div class="transition-all {selected.has(r.id) ? 'ring-2 ring-mare rounded-card' : ''}">
+          <div class="h-full transition-all {selected.has(r.id) ? 'ring-2 ring-mare rounded-card' : ''}">
             {@render card(r)}
           </div>
         </button>
       {:else}
-        <a href="/recipes/{r.id}" class="block group">
+        <a href="/recipes/{r.id}" class="block h-full group">
           {@render card(r)}
         </a>
       {/if}

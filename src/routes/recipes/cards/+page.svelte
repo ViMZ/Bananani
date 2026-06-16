@@ -27,6 +27,9 @@
         <div class="crop"></div>
 
         <div class="frame">
+          {#if c.owner}
+            <div class="font-display italic text-mare m-owner">de {c.owner}</div>
+          {/if}
           <div class="m-title">
             <h2 class="font-display italic text-umber leading-[1.05] m-title-text">{c.title}</h2>
             {#if c.description}
@@ -50,10 +53,6 @@
               </div>
             </div>
           </div>
-
-          {#if c.owner}
-            <div class="font-display italic text-sepia m-sign">de {c.owner}</div>
-          {/if}
         </div>
       </div>
     {/each}
@@ -100,10 +99,22 @@
 
   .m-title-text {
     font-size: 15px;
+    padding-right: 22mm; /* réserve la place pour la signature en coin haut-droit */
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  /* Signature « de [propriétaire] » en coin haut-droit (n'empiète pas sur la photo) */
+  .m-owner {
+    position: absolute;
+    top: 4mm;
+    right: 4mm;
+    max-width: 22mm;
+    text-align: right;
+    font-size: 9px;
+    line-height: 1.15;
   }
 
   .m-desc {
@@ -180,18 +191,6 @@
     width: 100%;
     height: 100%;
     display: block;
-  }
-
-  /* Signature « de [propriétaire] » en pied de fiche */
-  .m-sign {
-    flex: none;
-    margin-top: 2mm;
-    text-align: center;
-    font-size: 11px;
-    line-height: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   /* Traits de coupe (4 coins) */
