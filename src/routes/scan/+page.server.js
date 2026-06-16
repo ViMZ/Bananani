@@ -1,18 +1,8 @@
 import { fail } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
 import { getRecipeByCode } from '$lib/server/recipes';
+import { recipeInList } from '$lib/server/shopping';
 import { db } from '$lib/server/db';
 import { shoppingItems } from '$lib/server/db/schema';
-
-/** Renvoie true si au moins une ligne de la liste de courses provient de cette recette. */
-async function recipeInList(recipeId) {
-  const rows = await db
-    .select({ id: shoppingItems.id })
-    .from(shoppingItems)
-    .where(eq(shoppingItems.recipeId, recipeId))
-    .limit(1);
-  return rows.length > 0;
-}
 
 export const actions = {
   // Lecture seule : retrouve la recette pour prévisualisation (aucune insertion).

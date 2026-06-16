@@ -3,7 +3,7 @@
   import Ornament from '$lib/components/Ornament.svelte';
   import BackLink from '$lib/components/BackLink.svelte';
 
-  let { data } = $props();
+  let { data, form } = $props();
   let { recipe, ingredients } = $derived(data);
 
   let confirmDelete = $state(false);
@@ -41,12 +41,23 @@
 </header>
 
 <!-- Actions -->
-<div class="flex flex-wrap gap-2 justify-center mb-12 no-print">
-  <form method="POST" action="?/addToShopping">
-    <button class="btn-primary">＋ Ajouter aux courses</button>
-  </form>
-  <a href="/recipes/{recipe.id}/card" class="btn-lemon">🍋 Recette imprimable</a>
-  <a href="/recipes/{recipe.id}/edit" class="btn-secondary">Modifier</a>
+<div class="no-print mb-12">
+  <div class="flex flex-wrap gap-2 justify-center">
+    {#if data.inShoppingList}
+      <a href="/shopping" class="btn-secondary">✓ Déjà dans les courses</a>
+    {:else}
+      <form method="POST" action="?/addToShopping">
+        <button class="btn-primary">＋ Ajouter aux courses</button>
+      </form>
+    {/if}
+    <a href="/recipes/{recipe.id}/card" class="btn-lemon">🍋 Recette imprimable</a>
+    <a href="/recipes/{recipe.id}/edit" class="btn-secondary">Modifier</a>
+  </div>
+  {#if form?.alreadyInList}
+    <p class="text-center text-sm italic text-sepia mt-3">Cette recette est déjà dans la liste de courses.</p>
+  {:else if form?.empty}
+    <p class="text-center text-sm italic text-sepia mt-3">Aucun ingrédient à ajouter.</p>
+  {/if}
 </div>
 
 <!-- Contenu deux colonnes -->
