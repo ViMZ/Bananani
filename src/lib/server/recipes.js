@@ -79,6 +79,7 @@ export async function createRecipe(formData) {
       code,
       title,
       description: String(formData.get('description') ?? '').trim(),
+      owner: String(formData.get('owner') ?? '').trim(),
       servings: Number(formData.get('servings') ?? 2) || 2,
       instructions: String(formData.get('instructions') ?? ''),
       photoPath
@@ -118,6 +119,7 @@ export async function updateRecipe(id, formData) {
     .set({
       title,
       description: String(formData.get('description') ?? '').trim(),
+      owner: String(formData.get('owner') ?? '').trim(),
       servings: Number(formData.get('servings') ?? 2) || 2,
       instructions: String(formData.get('instructions') ?? ''),
       photoPath
@@ -165,6 +167,7 @@ export async function getRecipesForCards(ids) {
     code: recipes.code,
     title: recipes.title,
     description: recipes.description,
+    owner: recipes.owner,
     photoPath: recipes.photoPath
   };
   if (ids && ids.length > 0) {

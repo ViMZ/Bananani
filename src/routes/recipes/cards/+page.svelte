@@ -27,7 +27,6 @@
         <div class="crop"></div>
 
         <div class="frame">
-          <span class="m-lemon">🍋</span>
           <div class="m-title">
             <h2 class="font-display italic text-umber leading-[1.05] m-title-text">{c.title}</h2>
             {#if c.description}
@@ -36,17 +35,25 @@
           </div>
 
           <div class="m-main">
-            {#if c.photoPath}
-              <img class="m-photo" src={c.photoPath} alt={c.title} />
-            {:else}
-              <div class="m-photo m-photo--empty">
-                <span class="font-display italic text-4xl text-sepia">N°</span>
-              </div>
-            {/if}
+            <div class="m-photo-frame">
+              {#if c.photoPath}
+                <img class="m-photo" src={c.photoPath} alt={c.title} />
+              {:else}
+                <div class="m-photo m-photo--empty">
+                  <span class="font-display italic text-4xl text-sepia">N°</span>
+                </div>
+              {/if}
+            </div>
             <div class="m-aside">
-              <div class="m-qr">{@html c.qrSvg}</div>
+              <div class="m-qr-frame">
+                <div class="m-qr">{@html c.qrSvg}</div>
+              </div>
             </div>
           </div>
+
+          {#if c.owner}
+            <div class="font-display italic text-sepia m-sign">de {c.owner}</div>
+          {/if}
         </div>
       </div>
     {/each}
@@ -87,21 +94,12 @@
     background: #fbf6ea; /* panna */
   }
 
-  .m-lemon {
-    position: absolute;
-    top: 2mm;
-    right: 2.5mm;
-    font-size: 13px;
-    line-height: 1;
-  }
-
   .m-title {
     flex: none;
   }
 
   .m-title-text {
     font-size: 15px;
-    padding-right: 6mm; /* laisse la place au citron dans le coin */
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -127,13 +125,28 @@
     align-items: stretch;
   }
 
-  .m-photo {
+  /* Cadre « double filet » partagé photo + QR (filet mare extérieur, mat blanc,
+     liseré umber intérieur) — style menu de trattoria. */
+  .m-photo-frame,
+  .m-qr-frame {
+    box-sizing: border-box;
+    background: #fff;
+    padding: 1.2mm;
+    border: 0.4mm solid rgba(31, 86, 115, 0.55); /* mare */
+  }
+
+  .m-photo-frame {
     flex: 1;
     min-width: 0;
     height: 100%;
+  }
+
+  .m-photo {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    border: 0.3mm solid rgba(61, 47, 37, 0.15);
-    background: #fff;
+    display: block;
+    border: 0.25mm solid rgba(61, 47, 37, 0.25); /* umber, liseré intérieur */
   }
 
   .m-photo--empty {
@@ -145,24 +158,40 @@
 
   .m-aside {
     flex: none;
-    width: 24mm;
+    width: 26mm;
     align-self: stretch; /* conteneur QR = pleine hauteur (= hauteur photo) */
     display: flex;
     align-items: center;
     justify-content: center; /* QR centré dans le conteneur */
   }
 
-  .m-qr {
-    width: 24mm;
-    height: 24mm;
+  .m-qr-frame {
     flex: none;
+  }
+
+  .m-qr {
+    width: 21mm;
+    height: 21mm;
     background: #fff;
+    border: 0.25mm solid rgba(61, 47, 37, 0.25); /* umber, liseré intérieur */
   }
 
   .m-qr :global(svg) {
     width: 100%;
     height: 100%;
     display: block;
+  }
+
+  /* Signature « de [propriétaire] » en pied de fiche */
+  .m-sign {
+    flex: none;
+    margin-top: 2mm;
+    text-align: center;
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Traits de coupe (4 coins) */
@@ -229,6 +258,9 @@
     .planche,
     .mini,
     .frame,
+    .m-photo-frame,
+    .m-photo,
+    .m-qr-frame,
     .m-qr,
     .m-qr :global(svg) {
       -webkit-print-color-adjust: exact;

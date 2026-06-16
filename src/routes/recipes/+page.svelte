@@ -46,6 +46,9 @@
       {#if r.description}
         <p class="text-sm text-sepia italic mt-1 line-clamp-1">{r.description}</p>
       {/if}
+      {#if r.owner}
+        <p class="font-display italic text-mare text-sm mt-1">de {r.owner}</p>
+      {/if}
       <div class="mt-3 flex items-center justify-between">
         <span class="codice flex items-center gap-1.5">
           <span class="text-limone">✦</span>

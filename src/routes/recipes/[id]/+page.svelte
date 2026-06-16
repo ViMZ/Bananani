@@ -31,6 +31,10 @@
     <p class="mt-4 font-sans text-base text-sepia italic max-w-xl mx-auto">{recipe.description}</p>
   {/if}
 
+  {#if recipe.owner}
+    <p class="mt-3 font-display italic text-lg text-mare">de {recipe.owner}</p>
+  {/if}
+
   <div class="flex justify-center mt-6">
     <Sprig width={120} />
   </div>

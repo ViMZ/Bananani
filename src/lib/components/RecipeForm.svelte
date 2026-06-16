@@ -5,7 +5,7 @@
   import Combobox from '$lib/components/Combobox.svelte';
 
   let {
-    recipe = { title: '', description: '', servings: 2, instructions: '', photoPath: null },
+    recipe = { title: '', description: '', owner: '', servings: 2, instructions: '', photoPath: null },
     ingredients = [],
     catalog = [],
     submitLabel = 'Enregistrer',
@@ -85,6 +85,11 @@
           <label class="label" for="servings">Personnes</label>
           <input class="input font-display text-center text-xl" id="servings" name="servings" type="number" min="1" max="50" value={recipe.servings ?? 2} />
         </div>
+      </div>
+
+      <div>
+        <label class="label" for="owner">Recette de</label>
+        <input class="input italic" id="owner" name="owner" value={recipe.owner ?? ''} placeholder="ex. Mamie, Vincent…" />
       </div>
 
       <div>

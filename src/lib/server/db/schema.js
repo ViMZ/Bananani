@@ -15,6 +15,7 @@ export const recipes = sqliteTable('recipes', {
   code: text('code').notNull().unique(),
   title: text('title').notNull(),
   description: text('description').default(''),
+  owner: text('owner').default(''),
   servings: integer('servings').default(2),
   instructions: text('instructions').default(''),
   photoPath: text('photo_path'),

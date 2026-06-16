@@ -33,6 +33,7 @@ sqlite.exec(`
     code TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     description TEXT DEFAULT '',
+    owner TEXT DEFAULT '',
     servings INTEGER DEFAULT 2,
     instructions TEXT DEFAULT '',
     photo_path TEXT,
@@ -87,3 +88,4 @@ for (const table of ['recipe_ingredients', 'shopping_items']) {
 }
 addColumnIfMissing('ingredient_catalog', 'default_unit', "TEXT DEFAULT ''");
 addColumnIfMissing('ingredient_catalog', 'category', "TEXT DEFAULT ''");
+addColumnIfMissing('recipes', 'owner', "TEXT DEFAULT ''");
