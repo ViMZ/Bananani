@@ -1,16 +1,10 @@
 <script>
   import Sprig from '$lib/components/Sprig.svelte';
   import { aggregateItems, groupByCategory } from '$lib/ingredients/aggregate';
+  import { groupByRecipe } from '$lib/ingredients/byRecipe';
   let { data } = $props();
 
-  let groupedByRecipe = $derived.by(() => {
-    const groups = {};
-    for (const item of data.items) {
-      const key = item.recipeTitle || 'Divers';
-      (groups[key] ??= []).push(item);
-    }
-    return Object.entries(groups);
-  });
+  let recipeGroups = $derived(groupByRecipe(data.items, { manualLabel: 'Divers' }));
 
   let byCategory = $derived(groupByCategory(aggregateItems(data.items)));
 
@@ -83,29 +77,32 @@
       </div>
     {:else}
       <div class="space-y-8">
-        {#each groupedByRecipe as [groupName, items]}
+        {#each recipeGroups as group (group.title)}
           <section>
             <div class="flex items-baseline gap-4 mb-3">
-              <h2 class="h-display italic text-xl text-mare">{groupName}</h2>
+              <h2 class="h-display italic text-xl text-mare">{group.title}</h2>
+              {#if group.instances > 1}
+                <span class="font-mono text-[10px] uppercase tracking-wider text-mare">
+                  {#if group.servings}{group.servings} pers × {group.instances}{:else}× {group.instances}{/if}
+                </span>
+              {/if}
               <span class="flex-1 h-px bg-mare/30"></span>
-              <span class="h-eyebrow text-mare">{items.length}</span>
+              <span class="h-eyebrow text-mare">{group.lines.length}</span>
             </div>
             <ul class="space-y-1.5">
-              {#each items as item}
+              {#each group.lines as line (line.ids.join(','))}
                 <li class="grid grid-cols-[20px_1fr_auto] gap-3 items-baseline">
                   <span class="w-4 h-4 border border-umber/40 rounded-sm inline-block mt-0.5"></span>
                   <div>
-                    <span class="font-sans font-medium text-umber">{item.name}</span>
-                    {#if item.brand || item.productReference}
+                    <span class="font-sans font-medium text-umber">{line.name}</span>
+                    {#if line.brand || line.productReference}
                       <span class="font-mono text-[10px] uppercase tracking-wider text-sepia">
-                        &nbsp;·&nbsp;{[item.brand, item.productReference].filter(Boolean).join(' · ')}
+                        &nbsp;·&nbsp;{[line.brand, line.productReference].filter(Boolean).join(' · ')}
                       </span>
                     {/if}
                   </div>
-                  {#if item.quantity}
-                    <span class="font-display text-base text-umber whitespace-nowrap">
-                      {item.quantity}<span class="text-sepia text-xs font-sans">{item.unit}</span>
-                    </span>
+                  {#if line.total}
+                    <span class="font-display text-base text-umber whitespace-nowrap">{line.display}</span>
                   {/if}
                 </li>
               {/each}

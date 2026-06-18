@@ -18,14 +18,17 @@ export const actions = {
     await deleteRecipe(id);
     throw redirect(303, '/recipes');
   },
-  addToShopping: async ({ params }) => {
+  addToShopping: async ({ params, request }) => {
     const id = Number(params.id);
+    const formData = await request.formData();
+    // force=1 : l'utilisateur a confirmé l'ajout malgré la présence dans la liste.
+    const force = formData.get('force') === '1';
     const data = await getRecipeWithIngredients(id);
     if (!data) throw error(404);
     const { recipe, ingredients } = data;
     if (ingredients.length === 0) return { added: 0, empty: true };
-    // Empêche le doublon : une recette déjà présente n'est pas réinsérée.
-    if (await recipeInList(id)) return { alreadyInList: true };
+    // Empêche le doublon involontaire ; l'utilisateur peut passer outre avec force.
+    if (!force && (await recipeInList(id))) return { alreadyInList: true };
 
     await db.insert(shoppingItems).values(
       ingredients.map((i) => ({

@@ -1,15 +1,24 @@
 import { db } from '$lib/server/db';
-import { shoppingItems, ingredientCatalog } from '$lib/server/db/schema';
+import { shoppingItems, ingredientCatalog, recipes } from '$lib/server/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { resolveOrCreate } from '$lib/server/ingredients/catalog';
 
 export async function load() {
   const rows = await db
-    .select({ item: shoppingItems, category: ingredientCatalog.category })
+    .select({
+      item: shoppingItems,
+      category: ingredientCatalog.category,
+      servings: recipes.servings
+    })
     .from(shoppingItems)
     .leftJoin(ingredientCatalog, eq(shoppingItems.canonicalId, ingredientCatalog.id))
+    .leftJoin(recipes, eq(shoppingItems.recipeId, recipes.id))
     .orderBy(shoppingItems.addedAt);
-  const items = rows.map((r) => ({ ...r.item, category: r.category ?? '' }));
+  const items = rows.map((r) => ({
+    ...r.item,
+    category: r.category ?? '',
+    servings: r.servings ?? null
+  }));
   return { items };
 }
 

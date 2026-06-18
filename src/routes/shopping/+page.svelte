@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import Sprig from '$lib/components/Sprig.svelte';
   import { aggregateItems, groupByCategory } from '$lib/ingredients/aggregate';
+  import { groupByRecipe } from '$lib/ingredients/byRecipe';
 
   let { data } = $props();
 
@@ -16,15 +17,9 @@
     localStorage.setItem('shopping-view', mode);
   }
 
-  // Vue par recette : groupement visuel inchangé.
-  let groupedByRecipe = $derived.by(() => {
-    const groups = {};
-    for (const item of data.items) {
-      const key = item.recipeTitle || 'Ajoutés à la main';
-      (groups[key] ??= []).push(item);
-    }
-    return Object.entries(groups);
-  });
+  // Vue par recette : une entrée par recette ; les ajouts multiples sont fusionnés
+  // et rendus explicites (« 2 pers × 2 », « 200 × 2 »).
+  let recipeGroups = $derived(groupByRecipe(data.items));
 
   // Vue par ingrédient : agrégation + addition, groupée par rayon de magasin.
   let byCategory = $derived(groupByCategory(aggregateItems(data.items)));
@@ -176,55 +171,58 @@
   </div>
 {:else}
   <div class="space-y-10">
-    {#each groupedByRecipe as [groupName, items]}
+    {#each recipeGroups as group (group.title)}
       <section>
         <div class="flex items-baseline gap-4 mb-4">
-          <h2 class="h-display italic text-2xl text-mare">{groupName}</h2>
+          <h2 class="h-display italic text-2xl text-mare">{group.title}</h2>
+          {#if group.instances > 1}
+            <span class="font-mono text-[10px] uppercase tracking-wider text-mare bg-mare-soft/30 rounded-full px-2 py-0.5">
+              {#if group.servings}{group.servings} pers × {group.instances}{:else}× {group.instances}{/if}
+            </span>
+          {/if}
           <span class="flex-1 h-px bg-mare/30"></span>
-          <span class="h-eyebrow text-mare">{items.length}</span>
+          <span class="h-eyebrow text-mare">{group.lines.length}</span>
         </div>
 
         <ul class="space-y-2">
-          {#each items as item}
+          {#each group.lines as line (line.ids.join(','))}
             <li class="flex items-start gap-3 py-3 px-4 rounded bg-panna border border-umber/10 hover:border-umber/25 transition-colors">
               <form method="POST" action="?/toggle" use:enhance class="pt-0.5">
-                <input type="hidden" name="id" value={item.id} />
-                <input type="hidden" name="checked" value={item.checked ? '0' : '1'} />
+                <input type="hidden" name="ids" value={line.ids.join(',')} />
+                <input type="hidden" name="checked" value={line.checked ? '0' : '1'} />
                 <button
                   type="submit"
                   class="w-5 h-5 border rounded-sm flex items-center justify-center transition-all
-                         {item.checked
+                         {line.checked
                            ? 'bg-oliva border-oliva shadow-soft'
                            : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
-                  aria-label={item.checked ? 'Décocher' : 'Cocher'}
+                  aria-label={line.checked ? 'Décocher' : 'Cocher'}
                 >
-                  {#if item.checked}
+                  {#if line.checked}
                     <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M2 6 L5 9 L10 3" />
                     </svg>
                   {/if}
                 </button>
               </form>
-              <div class="flex-1 {item.checked ? 'line-through text-sepia/60' : ''}">
+              <div class="flex-1 {line.checked ? 'line-through text-sepia/60' : ''}">
                 <div class="flex items-baseline gap-3 flex-wrap">
-                  <span class="font-sans text-[15px] font-medium text-umber">{item.name}</span>
-                  {#if item.quantity}
-                    <span class="font-display text-base text-umber/70">
-                      {item.quantity} <span class="font-sans text-xs text-sepia">{item.unit}</span>
-                    </span>
+                  <span class="font-sans text-[15px] font-medium text-umber">{line.name}</span>
+                  {#if line.total}
+                    <span class="font-display text-base text-umber/70">{line.display}</span>
                   {/if}
                 </div>
-                {#if item.brand || item.productReference}
+                {#if line.brand || line.productReference}
                   <div class="font-mono text-[10px] uppercase tracking-wider text-sepia mt-0.5">
-                    {[item.brand, item.productReference].filter(Boolean).join(' · ')}
+                    {[line.brand, line.productReference].filter(Boolean).join(' · ')}
                   </div>
                 {/if}
-                {#if item.notes}
-                  <div class="text-sm text-sepia italic mt-0.5">{item.notes}</div>
+                {#if line.notes.length > 0}
+                  <div class="text-sm text-sepia italic mt-0.5">{line.notes.join(' · ')}</div>
                 {/if}
               </div>
               <form method="POST" action="?/remove" use:enhance>
-                <input type="hidden" name="id" value={item.id} />
+                <input type="hidden" name="ids" value={line.ids.join(',')} />
                 <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label="Supprimer">
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />

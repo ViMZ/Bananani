@@ -45,6 +45,10 @@
   <div class="flex flex-wrap gap-2 justify-center">
     {#if data.inShoppingList}
       <a href="/shopping" class="btn-secondary">✓ Déjà dans les courses</a>
+      <form method="POST" action="?/addToShopping">
+        <input type="hidden" name="force" value="1" />
+        <button class="btn-primary">＋ Ajouter à nouveau</button>
+      </form>
     {:else}
       <form method="POST" action="?/addToShopping">
         <button class="btn-primary">＋ Ajouter aux courses</button>
