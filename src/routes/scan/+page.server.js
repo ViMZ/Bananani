@@ -30,6 +30,8 @@ export const actions = {
     const formData = await request.formData();
     const code = String(formData.get('code') ?? '').trim().toUpperCase();
     if (!code) return fail(400, { error: 'Code manquant' });
+    // force=1 : l'utilisateur a confirmé l'ajout depuis la popup malgré la présence dans la liste.
+    const force = formData.get('force') === '1';
 
     const data = await getRecipeByCode(code);
     if (!data) return fail(404, { error: `Aucune recette trouvée pour le code « ${code} »`, code });
@@ -38,7 +40,7 @@ export const actions = {
     if (ingredients.length === 0) {
       return { added: 0, recipeTitle: recipe.title, code: recipe.code, empty: true };
     }
-    if (await recipeInList(recipe.id)) {
+    if (!force && await recipeInList(recipe.id)) {
       return { added: 0, recipeTitle: recipe.title, code: recipe.code, alreadyInList: true };
     }
 

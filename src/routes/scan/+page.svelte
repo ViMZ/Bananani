@@ -13,10 +13,12 @@
 
   let manualCode = $state('');
   let recentScans = $state([]);
-  /** @type {Set<string>} codes déjà scannés par la caméra pendant la session en cours */
-  let sessionCodes = new Set();
+  /** Délai (ms) pendant lequel on ignore le re-scan d'un même code après fermeture de la popup. */
+  const COOLDOWN_MS = 5000;
+  /** @type {Map<string, number>} code → timestamp jusqu'auquel le re-scan caméra est ignoré */
+  let cooldowns = new Map();
 
-  /** Recette en attente de confirmation (card affichée). @type {null | { recipe: any, ingredients: any[] }} */
+  /** Recette en attente de confirmation (card affichée). @type {null | { recipe: any, ingredients: any[], alreadyInList: boolean }} */
   let pendingRecipe = $state(null);
   /** Opération réseau en cours (lookup ou add) — sert aussi de garde. */
   let busy = $state(false);
@@ -34,7 +36,7 @@
     scanFeedback = null;
     scanning = true;
     frames = 0;
-    sessionCodes = new Set();
+    cooldowns = new Map();
     try {
       const { BrowserMultiFormatReader } = await import('@zxing/browser');
       const { BarcodeFormat, DecodeHintType } = await import('@zxing/library');
@@ -69,7 +71,7 @@
       controls = null;
     }
     scanning = false;
-    sessionCodes = new Set();
+    cooldowns = new Map();
   }
 
   function setFeedback(value) {
@@ -90,15 +92,15 @@
   /**
    * Prévisualise une recette à partir d'un code (lecture seule).
    * @param {string} code
-   * @param {{ dedup?: boolean }} [opts] dedup=true pour les scans caméra (anti-doublon de frames).
+   * @param {{ dedup?: boolean }} [opts] dedup=true pour les scans caméra (cooldown anti-doublon).
    */
   async function handleCode(code, { dedup = false } = {}) {
     if (pendingRecipe || busy) return; // une seule card / opération à la fois
     const c = code.trim().toUpperCase();
     if (!c) return;
     if (dedup) {
-      if (sessionCodes.has(c)) return;
-      sessionCodes.add(c);
+      const until = cooldowns.get(c);
+      if (until && Date.now() < until) return; // re-scan trop rapproché du même code
     }
 
     busy = true;
@@ -110,16 +112,17 @@
 
       if (parsed.type === 'success' && parsed.data) {
         const data = /** @type {any} */ (parsed.data);
-        if (data.alreadyInList) {
-          setFeedback({ kind: 'already', recipeTitle: data.recipeTitle, code: data.code });
-          pushRecent(c, data.recipeTitle);
-          manualCode = '';
-        } else if (data.empty) {
+        if (data.empty) {
           setFeedback({ kind: 'empty', recipeTitle: data.recipeTitle, code: data.code });
           pushRecent(c, data.recipeTitle);
+          if (dedup) cooldowns.set(c, Date.now() + COOLDOWN_MS);
           manualCode = '';
         } else {
-          pendingRecipe = { recipe: data.recipe, ingredients: data.ingredients };
+          pendingRecipe = {
+            recipe: data.recipe,
+            ingredients: data.ingredients,
+            alreadyInList: data.alreadyInList
+          };
           scanFeedback = null;
           manualCode = '';
         }
@@ -140,10 +143,12 @@
     if (!pendingRecipe || busy) return;
     const code = pendingRecipe.recipe.code;
     const title = pendingRecipe.recipe.title;
+    const force = pendingRecipe.alreadyInList; // l'utilisateur ajoute en connaissance de cause
     busy = true;
     try {
       const fd = new FormData();
       fd.append('code', code);
+      if (force) fd.append('force', '1');
       const res = await fetch('?/add', { method: 'POST', body: fd });
       const parsed = deserialize(await res.text());
 
@@ -161,7 +166,7 @@
         setFeedback({ kind: 'error', message: /** @type {any} */ (parsed.data).error ?? 'Erreur', code });
       }
 
-      pendingRecipe = null;
+      closeCard(code);
       await invalidateAll();
     } catch (e) {
       setFeedback({ kind: 'error', message: e instanceof Error ? e.message : 'Erreur réseau', code });
@@ -170,8 +175,14 @@
     }
   }
 
-  function cancelCard() {
+  /** Ferme la card et arme le cooldown pour ce code (évite un re-scan immédiat). */
+  function closeCard(code) {
     pendingRecipe = null;
+    if (code) cooldowns.set(code.trim().toUpperCase(), Date.now() + COOLDOWN_MS);
+  }
+
+  function cancelCard() {
+    closeCard(pendingRecipe?.recipe.code);
   }
 
   function submitManual(e) {
@@ -382,9 +393,15 @@
         {/each}
       </ul>
 
+      {#if pendingRecipe.alreadyInList}
+        <div class="mb-4 p-3 rounded bg-limone-soft/40 border border-limone/40 text-sm italic text-umber">
+          Cette recette est <span class="font-medium not-italic">déjà</span> dans la liste de courses.
+        </div>
+      {/if}
+
       <div class="flex gap-2">
         <button class="btn-primary flex-1" onclick={confirmAdd} disabled={busy}>
-          ＋ Ajouter à la liste de courses
+          {pendingRecipe.alreadyInList ? '＋ Ajouter quand même' : '＋ Ajouter à la liste de courses'}
         </button>
         <button class="btn-secondary" onclick={cancelCard} disabled={busy}>Annuler</button>
       </div>
