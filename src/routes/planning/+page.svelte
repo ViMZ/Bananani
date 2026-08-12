@@ -286,7 +286,7 @@
       aria-label="Fermer"
       onclick={() => (trayOpen = false)}
     ></button>
-    <div class="relative bg-linen rounded-t-card border-t border-umber/15 shadow-soft-lg max-h-[75vh] flex flex-col">
+    <div class="relative w-full max-w-2xl mx-auto bg-linen rounded-t-card border-t border-umber/15 shadow-soft-lg max-h-[75vh] flex flex-col">
       <div class="p-4 border-b border-umber/10">
         <div class="flex items-center justify-between mb-3">
           <h2 class="font-display italic text-xl text-umber">
@@ -321,9 +321,11 @@
             {/each}
           </div>
         {:else}
-          <!-- Mode glisser : zone source en copie -->
+          <!-- Mode glisser : zone source en copie.
+               Grille 1 col en mobile (inchangé), multi-colonnes en desktop : les cartes
+               restent compactes → le clone volant du drag n'occupe plus toute la largeur. -->
           <div
-            class="space-y-2"
+            class="grid grid-cols-1 sm:grid-cols-3 gap-2"
             use:dndzone={{ items: trayItems, flipDurationMs: FLIP, type: 'recipe', dropFromOthersDisabled: true, dropTargetStyle: {} }}
             onconsider={trayConsider}
             onfinalize={trayFinalize}
