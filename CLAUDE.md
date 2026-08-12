@@ -36,7 +36,7 @@ Pas de tests configurés à ce stade.
 
 ## Architecture
 
-**Stack** : SvelteKit 2 (Svelte 5, runes), better-sqlite3 + Drizzle ORM, Tailwind CSS, jsbarcode (génération), @zxing/browser (scan caméra).
+**Stack** : SvelteKit 2 (Svelte 5, runes), better-sqlite3 + Drizzle ORM, Tailwind CSS, jsbarcode (génération), @zxing/browser (scan caméra), svelte-dnd-action (drag-and-drop du planning).
 
 **Stockage** : tout est local au repo.
 - `data/bananani.db` — SQLite (créé au démarrage, ignoré par git)
@@ -48,6 +48,7 @@ Pas de tests configurés à ce stade.
 - `users` — comptes (multi-tenant). `username` unique (stocké en minuscules), `password_hash` (scrypt), `display_name`. Créés **uniquement** en CLI (`user:create`), pas d'inscription en ligne.
 - `recipes` — recette principale, `code` unique sert d'identifiant code-barres. `user_id` (NOT NULL, cascade) = propriétaire.
 - `recipe_ingredients` — lignes d'ingrédients liées à une recette (cascade delete), incluent `brand` et `product_reference` (important pour le projet). `canonical_id` → `ingredient_catalog`.
+- `meal_plan` — **planning hebdomadaire** : une ligne = une recette (`recipe_id`, cascade) posée sur un jour (`day_of_week` 0=lundi…6=dimanche) d'une semaine (`week_start` = lundi 'YYYY-MM-DD'). `user_id` NOT NULL (cascade). `position` ordonne les recettes d'un même jour. Une recette peut être placée plusieurs fois. Alimente `/planning`.
 - `shopping_items` — items de la liste de courses ; `user_id` (NOT NULL, cascade) = propriétaire ; **dénormalisés** (on copie `name/brand/qty/unit` au moment de l'ajout) pour qu'éditer une recette ne mute pas une liste de courses déjà constituée. `recipe_id` + `recipe_title` sont conservés pour grouper l'affichage ; `canonical_id` aussi (copié au scan) pour l'agrégation par ingrédient.
 - `ingredient_catalog` — **ingrédients canoniques** : **partagé entre tous les comptes** (pas de `user_id`) — ce sont des noms d'ingrédients génériques, tout le monde bénéficie des suggestions. `normalized_key` unique (via `normalizeName`), `default_unit`, `category` (rayon). Alimenté au fil de l'eau à la sauvegarde des recettes + par `db:seed-catalog`. Résout le problème du free-text : « Farine » et « farine » pointent vers la même entrée.
 
@@ -71,6 +72,7 @@ Pas de tests configurés à ce stade.
 - `/` — accueil avec stats et dernières recettes
 - `/recipes`, `/recipes/new`, `/recipes/[id]`, `/recipes/[id]/edit` — CRUD
 - `/recipes/[id]/card` — fiche A4 imprimable avec photo + Code 128
+- `/planning` — **calendrier hebdomadaire** (pensé mobile). On place des recettes (carte simplifiée `RecipeMiniCard` : miniature + nom) sur les jours via **drag-and-drop** (`svelte-dnd-action`, tactile ; fallback tap-to-place via le `+` de chaque jour). Actions `place`/`move`/`remove` (persistées en `meal_plan`, appelées en `fetch` + `invalidateAll`, modèle `/scan`). Bouton **« Générer la liste de courses »** : action `generate` qui ajoute à `shopping_items` les ingrédients des recettes de la semaine affichée, **en ignorant les jours déjà passés** (`isPastDay`) ; un placement = une occurrence des ingrédients (doublons voulus, sommés à l'affichage). `?mode=append|replace` (popup Ajouter/Remplacer si la liste n'est pas vide). Navigation par semaine via `?week=YYYY-MM-DD`. Utilitaires de date purs dans `src/lib/date/week.js` (lundi ISO, 7 jours, jour passé), **en heure locale** (pas `toISOString`).
 - `/scan` — caméra (@zxing) + saisie manuelle ; POST `?/add` ajoute les ingrédients à `shopping_items`
 - `/shopping` — liste interactive (toggle/remove/clear/add manuel). Toggle de vue **« par ingrédient »** (quantités additionnées, groupées par rayon) / **« par recette »** (groupement d'origine), mémorisé en `localStorage`. Les actions toggle/remove acceptent un `ids` (CSV) en plus d'un `id` unique, pour agir sur tout un groupe agrégé.
 - `/shopping/print` — vue imprimable, n'affiche que les items non cochés ; `?view=ingredient|recipe` (défaut `ingredient`).

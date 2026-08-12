@@ -93,6 +93,17 @@ sqlite.exec(`
     checked INTEGER DEFAULT 0,
     added_at TEXT DEFAULT (CURRENT_TIMESTAMP) NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS meal_plan (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+    week_start TEXT NOT NULL,
+    day_of_week INTEGER NOT NULL,
+    meal TEXT NOT NULL DEFAULT 'midi',
+    position INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (CURRENT_TIMESTAMP) NOT NULL
+  );
 `);
 
 // Migration douce : ajoute des colonnes aux tables déjà créées avant l'introduction
@@ -115,3 +126,4 @@ for (const table of ['recipe_ingredients', 'shopping_items']) {
 addColumnIfMissing('ingredient_catalog', 'default_unit', "TEXT DEFAULT ''");
 addColumnIfMissing('ingredient_catalog', 'category', "TEXT DEFAULT ''");
 addColumnIfMissing('recipes', 'owner', "TEXT DEFAULT ''");
+addColumnIfMissing('meal_plan', 'meal', "TEXT NOT NULL DEFAULT 'midi'");

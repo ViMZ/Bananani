@@ -69,3 +69,21 @@ export const shoppingItems = sqliteTable('shopping_items', {
   checked: integer('checked', { mode: 'boolean' }).default(false),
   addedAt: text('added_at').default(sql`(CURRENT_TIMESTAMP)`).notNull()
 });
+
+// Planning hebdomadaire : une ligne = une recette posée sur un jour d'une semaine.
+// Une recette peut être placée plusieurs fois (plusieurs jours / plusieurs fois le
+// même jour). Supprimer la recette (ou le compte) retire les placements (cascade).
+export const mealPlan = sqliteTable('meal_plan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  recipeId: integer('recipe_id')
+    .notNull()
+    .references(() => recipes.id, { onDelete: 'cascade' }),
+  weekStart: text('week_start').notNull(), // date du lundi, 'YYYY-MM-DD'
+  dayOfWeek: integer('day_of_week').notNull(), // 0 = lundi … 6 = dimanche
+  meal: text('meal').notNull().default('midi'), // 'midi' | 'soir'
+  position: integer('position').default(0),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull()
+});

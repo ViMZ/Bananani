@@ -9,6 +9,7 @@
   const nav = [
     { href: '/', label: 'Accueil' },
     { href: '/recipes', label: 'Ricettario' },
+    { href: '/planning', label: 'Semaine' },
     { href: '/scan', label: 'Scanner' },
     { href: '/shopping', label: 'Courses' }
   ];
@@ -79,7 +80,7 @@
   {#if !isAuthPage}
     <!-- Bottom nav mobile -->
     <nav class="no-print md:hidden fixed bottom-0 inset-x-0 z-30 bg-panna/95 backdrop-blur border-t border-umber/15">
-      <div class="grid grid-cols-4">
+      <div class="grid grid-cols-5">
         {#each nav as item}
           <a
             href={item.href}
