@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- stage build ----------
-FROM node:24-bookworm-slim AS build
+# Node 22 LTS épinglé volontairement : better-sqlite3 11.x plante au teardown sur
+# Node 24 (Assertion (env) != nullptr dans RemoveEnvironmentCleanupHook → SIGABRT au
+# boot). Ne pas repasser sur node:24 sans bumper better-sqlite3 en ^12.
+FROM node:22-bookworm-slim AS build
 
 # better-sqlite3 est un binding natif → besoin de la toolchain au build
 RUN apt-get update \
@@ -25,7 +28,7 @@ RUN npm prune --omit=dev
 
 
 # ---------- stage runtime ----------
-FROM node:24-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 
 WORKDIR /app
 
