@@ -7,6 +7,7 @@ declare global {
         username: string;
         displayName: string;
       };
+      admin?: boolean;
     }
   }
 }

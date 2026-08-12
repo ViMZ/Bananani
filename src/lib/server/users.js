@@ -61,6 +61,19 @@ export async function updatePasswordHash(username, passwordHash) {
   return true;
 }
 
+/**
+ * Supprime un compte (ses recettes et items de courses partent en cascade).
+ * Renvoie false si le compte est absent.
+ * @param {number} id
+ */
+export async function deleteUserById(id) {
+  if (!Number.isInteger(id)) return false;
+  const existing = await getUserById(id);
+  if (!existing) return false;
+  await db.delete(users).where(eq(users.id, id));
+  return true;
+}
+
 /** Liste tous les comptes (sans le hash), triés par identifiant. */
 export async function listUsers() {
   return db

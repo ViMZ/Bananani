@@ -15,9 +15,30 @@ const SECRET = process.env.SESSION_SECRET || 'bananani-dev-insecure-secret';
 export const SESSION_COOKIE = 'bananani_session';
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 jours
 
+// Back-office admin : realm séparé, protégé par un mot de passe unique (env).
+// Sans ADMIN_PASSWORD, le BO est désactivé (routes /admin inaccessibles).
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+export const ADMIN_ENABLED = Boolean(ADMIN_PASSWORD);
+export const ADMIN_COOKIE = 'bananani_admin';
+export const ADMIN_SESSION_MAX_AGE = 60 * 60 * 8; // 8 h
+
 // Paramètres scrypt (coût mémoire N, blocs r, parallélisme p, longueur de clé).
 const SCRYPT = { N: 16384, r: 8, p: 1 };
 const KEYLEN = 64;
+
+// Alphabet sans caractères ambigus (0/O, 1/l/I) : mot de passe dictable au téléphone.
+const READABLE_ALPHABET = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/** Mot de passe aléatoire lisible : 4 groupes de 4, séparés par des tirets. */
+export function generatePassword() {
+  const bytes = randomBytes(16);
+  let out = '';
+  for (let i = 0; i < 16; i++) {
+    if (i > 0 && i % 4 === 0) out += '-';
+    out += READABLE_ALPHABET[bytes[i] % READABLE_ALPHABET.length];
+  }
+  return out;
+}
 
 /**
  * Hache un mot de passe. Format : `scrypt$<saltHex>$<hashHex>`.
@@ -107,4 +128,51 @@ export async function verifySession(cookie) {
   if (!timingSafeEqual(Buffer.from(mac, 'hex'), Buffer.from(expected, 'hex'))) return null;
 
   return { id: user.id, username: user.username, displayName: user.displayName ?? '' };
+}
+
+// --- Back-office admin ---------------------------------------------------
+
+/** Comparaison de chaînes à temps constant. */
+function timingSafeStringEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ba.length !== bb.length) return false;
+  return timingSafeEqual(ba, bb);
+}
+
+/**
+ * Vérifie le mot de passe admin. Faux si le BO est désactivé.
+ * @param {string} password
+ */
+export function verifyAdminPassword(password) {
+  if (!ADMIN_ENABLED) return false;
+  return timingSafeStringEqual(password, ADMIN_PASSWORD);
+}
+
+/**
+ * Cookie de session admin : `<exp>.<hmac>`, signé avec SECRET + ADMIN_PASSWORD
+ * (⇒ changer le mot de passe admin invalide les sessions admin en cours).
+ */
+export function createAdminSession() {
+  const exp = Math.floor(Date.now() / 1000) + ADMIN_SESSION_MAX_AGE;
+  const mac = createHmac('sha256', SECRET).update(`admin.${exp}.${ADMIN_PASSWORD}`).digest('hex');
+  return `${exp}.${mac}`;
+}
+
+/**
+ * Vérifie un cookie de session admin.
+ * @param {string | undefined | null} cookie
+ * @returns {boolean}
+ */
+export function verifyAdminSession(cookie) {
+  if (!ADMIN_ENABLED || !cookie) return false;
+  const dot = cookie.indexOf('.');
+  if (dot === -1) return false;
+  const expStr = cookie.slice(0, dot);
+  const mac = cookie.slice(dot + 1);
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return false;
+  const expected = createHmac('sha256', SECRET).update(`admin.${exp}.${ADMIN_PASSWORD}`).digest('hex');
+  if (mac.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(mac, 'hex'), Buffer.from(expected, 'hex'));
 }

@@ -18,8 +18,10 @@
     return $page.url.pathname.startsWith(href);
   }
 
-  // Pages "auth" : pas de nav, pas de bottom bar, juste le contenu centré.
-  let isAuthPage = $derived($page.url.pathname === '/login');
+  // Pages "auth" et back-office : pas de nav applicative, juste le contenu.
+  let isAuthPage = $derived(
+    $page.url.pathname === '/login' || $page.url.pathname.startsWith('/admin')
+  );
 </script>
 
 <div class="app-shell min-h-screen flex flex-col {isAuthPage ? '' : 'pb-20 md:pb-0'}">

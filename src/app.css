@@ -17,6 +17,12 @@
     background: #1F5673;
     color: #FBF6EA;
   }
+  /* Surfaces sombres (card-mare) : sélection inversée pour rester visible. */
+  .card-mare ::selection,
+  .card-mare::selection {
+    background: #FBF6EA;
+    color: #1F5673;
+  }
   /* Italics naturels en display, base serif */
   h1, h2, h3, h4 {
     font-family: 'Cormorant Garamond', Georgia, serif;

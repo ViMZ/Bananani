@@ -13,23 +13,8 @@
  * Astuce : fixer SESSION_SECRET dans l'environnement (même valeur que le serveur)
  * n'est pas requis ici — la création/écriture ne signe aucune session.
  */
-import { randomBytes } from 'node:crypto';
-import { hashPassword } from '../src/lib/server/auth.js';
+import { hashPassword, generatePassword } from '../src/lib/server/auth.js';
 import { createUser, updatePasswordHash, listUsers } from '../src/lib/server/users.js';
-
-// Alphabet sans caractères ambigus (0/O, 1/l/I) pour un mot de passe dictable au téléphone.
-const ALPHABET = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-/** Mot de passe aléatoire lisible : 4 groupes de 4, séparés par des tirets. */
-function generatePassword() {
-  const bytes = randomBytes(16);
-  let out = '';
-  for (let i = 0; i < 16; i++) {
-    if (i > 0 && i % 4 === 0) out += '-';
-    out += ALPHABET[bytes[i] % ALPHABET.length];
-  }
-  return out;
-}
 
 /** Extrait `--name "..."` des arguments et renvoie { name, rest }. */
 function parseArgs(argv) {
