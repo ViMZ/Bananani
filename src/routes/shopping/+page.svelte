@@ -26,6 +26,13 @@
 
   let pending = $derived(data.items.filter((i) => !i.checked).length);
   let done = $derived(data.items.filter((i) => i.checked).length);
+
+  // Ajout manuel : bouton → modale.
+  let addModalOpen = $state(false);
+  let nameInput = $state(null);
+  $effect(() => {
+    if (addModalOpen && nameInput) nameInput.focus();
+  });
 </script>
 
 <header class="text-center mb-12">
@@ -52,6 +59,7 @@
 </div>
 
 <div class="flex flex-wrap justify-center gap-2 mb-10 no-print">
+  <button type="button" class="btn-secondary" onclick={() => (addModalOpen = true)}>＋ Ajouter à la main</button>
   <a href="/shopping/print?view={viewMode}" class="btn-secondary">🍋 Imprimer la liste</a>
   {#if done > 0}
     <form method="POST" action="?/clearChecked" use:enhance>
@@ -64,30 +72,6 @@
     </form>
   {/if}
 </div>
-
-<!-- Ajout manuel -->
-<section class="card-sand mb-10">
-  <div class="h-eyebrow mb-4">— Ajouter à la main</div>
-  <form method="POST" action="?/add" use:enhance class="grid sm:grid-cols-[1fr_90px_90px_1fr_auto] gap-3 items-end">
-    <div>
-      <label class="label" for="add-name">Article</label>
-      <input id="add-name" class="input" name="name" placeholder="ex. Latte fresco" required />
-    </div>
-    <div>
-      <label class="label" for="add-qty">Qté</label>
-      <input id="add-qty" class="input font-mono text-center" name="quantity" type="number" step="0.01" min="0" />
-    </div>
-    <div>
-      <label class="label" for="add-unit">Unité</label>
-      <input id="add-unit" class="input font-mono" name="unit" placeholder="L" />
-    </div>
-    <div>
-      <label class="label" for="add-brand">Marque</label>
-      <input id="add-brand" class="input italic" name="brand" placeholder="(optionnel)" />
-    </div>
-    <button class="btn-primary">＋ Ajouter</button>
-  </form>
-</section>
 
 {#if data.items.length === 0}
   <div class="text-center py-16">
@@ -234,5 +218,52 @@
         </ul>
       </section>
     {/each}
+  </div>
+{/if}
+
+<!-- Modale d'ajout manuel -->
+{#if addModalOpen}
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 no-print">
+    <button type="button" class="absolute inset-0 bg-umber/40" aria-label="Fermer" onclick={() => (addModalOpen = false)}></button>
+    <div class="relative card max-w-md w-full">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-display italic text-2xl text-umber">Ajouter un article</h2>
+        <button type="button" class="btn-ghost btn-sm" onclick={() => (addModalOpen = false)}>Fermer</button>
+      </div>
+      <form
+        method="POST"
+        action="?/add"
+        use:enhance={() => {
+          return async ({ result, update }) => {
+            await update();
+            if (result.type === 'success') addModalOpen = false;
+          };
+        }}
+        class="space-y-4"
+      >
+        <div>
+          <label class="label" for="add-name">Article</label>
+          <input id="add-name" bind:this={nameInput} class="input" name="name" placeholder="ex. Latte fresco" required />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label" for="add-qty">Qté</label>
+            <input id="add-qty" class="input font-mono text-center" name="quantity" type="number" step="0.01" min="0" />
+          </div>
+          <div>
+            <label class="label" for="add-unit">Unité</label>
+            <input id="add-unit" class="input font-mono" name="unit" placeholder="L" />
+          </div>
+        </div>
+        <div>
+          <label class="label" for="add-brand">Marque</label>
+          <input id="add-brand" class="input italic" name="brand" placeholder="(optionnel)" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="btn-ghost" onclick={() => (addModalOpen = false)}>Annuler</button>
+          <button type="submit" class="btn-primary">＋ Ajouter</button>
+        </div>
+      </form>
+    </div>
   </div>
 {/if}
