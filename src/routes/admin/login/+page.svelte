@@ -1,4 +1,5 @@
 <script>
+  import PasswordInput from '$lib/components/PasswordInput.svelte';
   let { data, form } = $props();
 </script>
 
@@ -26,14 +27,7 @@
       <form method="POST" class="card space-y-5">
         <div>
           <label class="label" for="password">Mot de passe admin</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            class="input"
-            autocomplete="current-password"
-            required
-          />
+          <PasswordInput id="password" name="password" autocomplete="current-password" required />
         </div>
 
         {#if form?.error}

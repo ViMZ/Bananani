@@ -1,5 +1,6 @@
 <script>
   import Sprig from '$lib/components/Sprig.svelte';
+  import PasswordInput from '$lib/components/PasswordInput.svelte';
   let { form } = $props();
 </script>
 
@@ -37,14 +38,7 @@
 
       <div>
         <label class="label" for="password">Mot de passe</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          class="input"
-          autocomplete="current-password"
-          required
-        />
+        <PasswordInput id="password" name="password" autocomplete="current-password" required />
       </div>
 
       {#if form?.error}
