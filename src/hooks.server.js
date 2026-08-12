@@ -1,19 +1,13 @@
 import { redirect } from '@sveltejs/kit';
-import { AUTH_ENABLED, SESSION_COOKIE, verifySession } from '$lib/server/auth';
+import { SESSION_COOKIE, verifySession } from '$lib/server/auth';
 
 const PUBLIC_PATHS = new Set(['/login']);
 
 /** @type {import('@sveltejs/kit').Handle} */
 export async function handle({ event, resolve }) {
-  if (!AUTH_ENABLED) {
-    // Mode dev sans creds : pas d'auth, comportement legacy.
-    return resolve(event);
-  }
-
-  const cookie = event.cookies.get(SESSION_COOKIE);
-  const session = verifySession(cookie);
+  const session = await verifySession(event.cookies.get(SESSION_COOKIE));
   if (session) {
-    event.locals.user = session.user;
+    event.locals.user = session;
   }
 
   const path = event.url.pathname;

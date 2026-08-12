@@ -2,10 +2,10 @@ import { error } from '@sveltejs/kit';
 import QRCode from 'qrcode';
 import { getRecipeWithIngredients } from '$lib/server/recipes';
 
-export async function load({ params }) {
+export async function load({ params, locals }) {
   const id = Number(params.id);
   if (Number.isNaN(id)) throw error(404);
-  const data = await getRecipeWithIngredients(id);
+  const data = await getRecipeWithIngredients(locals.user.id, id);
   if (!data) throw error(404);
 
   // Pré-rendu serveur du QR (SVG inline) — évite le flicker à l'impression

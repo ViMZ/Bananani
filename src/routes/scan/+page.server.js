@@ -6,12 +6,12 @@ import { shoppingItems } from '$lib/server/db/schema';
 
 export const actions = {
   // Lecture seule : retrouve la recette pour prévisualisation (aucune insertion).
-  lookup: async ({ request }) => {
+  lookup: async ({ request, locals }) => {
     const formData = await request.formData();
     const code = String(formData.get('code') ?? '').trim().toUpperCase();
     if (!code) return fail(400, { error: 'Code manquant' });
 
-    const data = await getRecipeByCode(code);
+    const data = await getRecipeByCode(locals.user.id, code);
     if (!data) return fail(404, { error: `Aucune recette trouvée pour le code « ${code} »`, code });
 
     const { recipe, ingredients } = data;
@@ -20,32 +20,34 @@ export const actions = {
       ingredients,
       code: recipe.code,
       recipeTitle: recipe.title,
-      alreadyInList: await recipeInList(recipe.id),
+      alreadyInList: await recipeInList(locals.user.id, recipe.id),
       empty: ingredients.length === 0
     };
   },
 
   // Écriture : ajoute réellement les ingrédients à la liste de courses.
-  add: async ({ request }) => {
+  add: async ({ request, locals }) => {
+    const userId = locals.user.id;
     const formData = await request.formData();
     const code = String(formData.get('code') ?? '').trim().toUpperCase();
     if (!code) return fail(400, { error: 'Code manquant' });
     // force=1 : l'utilisateur a confirmé l'ajout depuis la popup malgré la présence dans la liste.
     const force = formData.get('force') === '1';
 
-    const data = await getRecipeByCode(code);
+    const data = await getRecipeByCode(userId, code);
     if (!data) return fail(404, { error: `Aucune recette trouvée pour le code « ${code} »`, code });
 
     const { recipe, ingredients } = data;
     if (ingredients.length === 0) {
       return { added: 0, recipeTitle: recipe.title, code: recipe.code, empty: true };
     }
-    if (!force && await recipeInList(recipe.id)) {
+    if (!force && await recipeInList(userId, recipe.id)) {
       return { added: 0, recipeTitle: recipe.title, code: recipe.code, alreadyInList: true };
     }
 
     await db.insert(shoppingItems).values(
       ingredients.map((i) => ({
+        userId,
         recipeId: recipe.id,
         recipeTitle: recipe.title,
         canonicalId: i.canonicalId,

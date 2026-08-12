@@ -24,6 +24,12 @@ npm run db:studio    # UI Drizzle pour inspecter la base SQLite
 npm run db:push      # synchronise schema.js vers la DB (utile après modif du schéma)
 npm run db:seed      # fixtures dev : 10 recettes (refuse d'écraser ; -- --force pour réinitialiser)
 npm run db:seed-catalog  # remplit ingredient_catalog avec ~180 ingrédients par rayon (idempotent)
+npm run db:seed -- --user <id>   # fixtures : rattache les 10 recettes au compte <id> (crée le compte avant)
+
+# Comptes (multi-tenant) — création manuelle, mot de passe transmis à la main :
+npm run user:create -- <identifiant> [mot-de-passe] [--name "Nom"]  # sans mdp : en génère un et l'affiche
+npm run user:passwd -- <identifiant> [mot-de-passe]                 # réinitialise (invalide les sessions)
+npm run user:list                                                  # liste les comptes
 ```
 
 Pas de tests configurés à ce stade.
@@ -39,16 +45,20 @@ Pas de tests configurés à ce stade.
 **Bootstrap DB** : `src/lib/server/db/index.js` exécute des `CREATE TABLE IF NOT EXISTS` à l'import. C'est suffisant pour un projet perso ; pas de système de migration Drizzle actif pour l'instant. Si on modifie `schema.js`, soit on adapte aussi le SQL de bootstrap, soit on lance `npm run db:push`. Pour **ajouter une colonne à une table existante**, `CREATE TABLE IF NOT EXISTS` ne suffit pas : utiliser le helper `addColumnIfMissing()` (ALTER TABLE gardé via `PRAGMA table_info`) déjà présent dans `index.js`.
 
 **Modèle de données** (`src/lib/server/db/schema.js`) :
-- `recipes` — recette principale, `code` unique sert d'identifiant code-barres
+- `users` — comptes (multi-tenant). `username` unique (stocké en minuscules), `password_hash` (scrypt), `display_name`. Créés **uniquement** en CLI (`user:create`), pas d'inscription en ligne.
+- `recipes` — recette principale, `code` unique sert d'identifiant code-barres. `user_id` (NOT NULL, cascade) = propriétaire.
 - `recipe_ingredients` — lignes d'ingrédients liées à une recette (cascade delete), incluent `brand` et `product_reference` (important pour le projet). `canonical_id` → `ingredient_catalog`.
-- `shopping_items` — items de la liste de courses ; **dénormalisés** (on copie `name/brand/qty/unit` au moment de l'ajout) pour qu'éditer une recette ne mute pas une liste de courses déjà constituée. `recipe_id` + `recipe_title` sont conservés pour grouper l'affichage ; `canonical_id` aussi (copié au scan) pour l'agrégation par ingrédient.
-- `ingredient_catalog` — **ingrédients canoniques** : `normalized_key` unique (via `normalizeName`), `default_unit`, `category` (rayon). Alimenté au fil de l'eau à la sauvegarde des recettes + par `db:seed-catalog`. Résout le problème du free-text : « Farine » et « farine » pointent vers la même entrée.
+- `shopping_items` — items de la liste de courses ; `user_id` (NOT NULL, cascade) = propriétaire ; **dénormalisés** (on copie `name/brand/qty/unit` au moment de l'ajout) pour qu'éditer une recette ne mute pas une liste de courses déjà constituée. `recipe_id` + `recipe_title` sont conservés pour grouper l'affichage ; `canonical_id` aussi (copié au scan) pour l'agrégation par ingrédient.
+- `ingredient_catalog` — **ingrédients canoniques** : **partagé entre tous les comptes** (pas de `user_id`) — ce sont des noms d'ingrédients génériques, tout le monde bénéficie des suggestions. `normalized_key` unique (via `normalizeName`), `default_unit`, `category` (rayon). Alimenté au fil de l'eau à la sauvegarde des recettes + par `db:seed-catalog`. Résout le problème du free-text : « Farine » et « farine » pointent vers la même entrée.
 
 **Couche serveur** (`src/lib/server/*`) :
 - `recipes.js` — créer/éditer/supprimer/récupérer recettes ; parse les champs d'ingrédients depuis FormData (champs répétés `ing_name`/`ing_brand`/`ing_category`/...). `withCanonicalIds()` résout chaque ingrédient via le catalogue ; `ing_category` est transient (sert à enrichir le catalogue, n'est pas une colonne de `recipe_ingredients`).
 - `ingredients/catalog.js` — `listCatalog()` ; `resolveOrCreate(name, unit, category)` : trouve/crée l'entrée canonique et enrichit unité+catégorie (première valeur non vide gagnante, jamais d'écrasement).
 - `uploads.js` — sauve les photos dans `static/uploads/` sous un nom horodaté + random.
-- `codes.js` — `generateRecipeCode()` ; `recipes.js#uniqueRecipeCode()` retente jusqu'à 10 fois en cas de collision.
+- `codes.js` — `generateRecipeCode()` ; `recipes.js#uniqueRecipeCode()` retente jusqu'à 10 fois en cas de collision. Les codes sont **uniques globalement** (pas par compte).
+- `auth.js` + `users.js` — **multi-tenant**. `users.js` = accès DB pur aux comptes (aucun import d'auth pour éviter un cycle). `auth.js` = hachage scrypt (`hashPassword`/`verifyPassword`), `authenticate(username, password)`, et sessions **sans état** : cookie `<userId>.<exp>.<hmac>` signé HMAC avec `SESSION_SECRET` **+ le hash du mot de passe** (⇒ changer le mdp invalide les sessions). `verifySession` relit l'utilisateur en base. `hooks.server.js` exige une session sur toute route hors `/login` et pose `event.locals.user = { id, username, displayName }`.
+  - **`SESSION_SECRET`** : à définir en prod (variable d'env). En dev, fallback non sûr `bananani-dev-insecure-secret`. Changer ce secret invalide toutes les sessions.
+  - **Scoping** : chaque `load`/action lit `locals.user.id` et le passe aux fonctions serveur (`createRecipe(userId, …)`, `getRecipeByCode(userId, …)`, requêtes `shopping_items` filtrées sur `user_id`, y compris les toggle/remove par `ids`). Toute nouvelle requête sur `recipes`/`shopping_items` **doit** filtrer par `user_id`.
 
 **Agrégation ingrédients** (`src/lib/ingredients/*`, modules **purs, client-importables** — hors `$lib/server/`) :
 - `normalize.js` — `normalizeName()` : clé de regroupement (minuscules/accents/espaces/pluriel conservateur). Sert de clé catalogue ET de fallback de regroupement pour les items sans `canonical_id`.

@@ -2,7 +2,9 @@
   import '../app.css';
   import { page } from '$app/stores';
 
-  let { children } = $props();
+  let { children, data } = $props();
+
+  let userLabel = $derived(data?.user ? data.user.displayName || data.user.username : '');
 
   const nav = [
     { href: '/', label: 'Accueil' },
@@ -97,6 +99,9 @@
       <div class="max-w-6xl mx-auto px-8 flex items-center justify-between text-xs text-sepia">
         <span class="font-display italic text-base">Bananani</span>
         <div class="flex items-center gap-5">
+          {#if userLabel}
+            <span class="font-mono tracking-wider">{userLabel}</span>
+          {/if}
           <form method="POST" action="/logout">
             <button type="submit" class="font-mono tracking-wider uppercase hover:text-terra transition-colors">
               Déconnexion

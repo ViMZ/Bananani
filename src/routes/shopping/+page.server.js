@@ -1,9 +1,9 @@
 import { db } from '$lib/server/db';
 import { shoppingItems, ingredientCatalog, recipes } from '$lib/server/db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { resolveOrCreate } from '$lib/server/ingredients/catalog';
 
-export async function load() {
+export async function load({ locals }) {
   const rows = await db
     .select({
       item: shoppingItems,
@@ -13,6 +13,7 @@ export async function load() {
     .from(shoppingItems)
     .leftJoin(ingredientCatalog, eq(shoppingItems.canonicalId, ingredientCatalog.id))
     .leftJoin(recipes, eq(shoppingItems.recipeId, recipes.id))
+    .where(eq(shoppingItems.userId, locals.user.id))
     .orderBy(shoppingItems.addedAt);
   const items = rows.map((r) => ({
     ...r.item,
@@ -36,31 +37,39 @@ function targetIds(formData) {
 }
 
 export const actions = {
-  toggle: async ({ request }) => {
+  toggle: async ({ request, locals }) => {
     const formData = await request.formData();
     const ids = targetIds(formData);
     if (ids.length === 0) return;
     const checked = formData.get('checked') === '1';
-    await db.update(shoppingItems).set({ checked }).where(inArray(shoppingItems.id, ids));
+    await db
+      .update(shoppingItems)
+      .set({ checked })
+      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids)));
   },
-  remove: async ({ request }) => {
+  remove: async ({ request, locals }) => {
     const formData = await request.formData();
     const ids = targetIds(formData);
     if (ids.length === 0) return;
-    await db.delete(shoppingItems).where(inArray(shoppingItems.id, ids));
+    await db
+      .delete(shoppingItems)
+      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids)));
   },
-  clearChecked: async () => {
-    await db.delete(shoppingItems).where(eq(shoppingItems.checked, true));
+  clearChecked: async ({ locals }) => {
+    await db
+      .delete(shoppingItems)
+      .where(and(eq(shoppingItems.userId, locals.user.id), eq(shoppingItems.checked, true)));
   },
-  clearAll: async () => {
-    await db.delete(shoppingItems);
+  clearAll: async ({ locals }) => {
+    await db.delete(shoppingItems).where(eq(shoppingItems.userId, locals.user.id));
   },
-  add: async ({ request }) => {
+  add: async ({ request, locals }) => {
     const formData = await request.formData();
     const name = String(formData.get('name') ?? '').trim();
     if (!name) return;
     const unit = String(formData.get('unit') ?? '').trim();
     await db.insert(shoppingItems).values({
+      userId: locals.user.id,
       canonicalId: await resolveOrCreate(name, unit),
       name,
       quantity: Number(formData.get('quantity') ?? 0) || 0,

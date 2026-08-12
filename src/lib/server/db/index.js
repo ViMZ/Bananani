@@ -18,7 +18,16 @@ sqlite.pragma('foreign_keys = ON');
 export const db = drizzle(sqlite, { schema });
 
 // Bootstrap tables on first run (idempotent).
+// users + ingredient_catalog d'abord : recipes/shopping_items les référencent.
 sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    display_name TEXT DEFAULT '',
+    created_at TEXT DEFAULT (CURRENT_TIMESTAMP) NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS ingredient_catalog (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -27,9 +36,25 @@ sqlite.exec(`
     category TEXT DEFAULT '',
     created_at TEXT DEFAULT (CURRENT_TIMESTAMP) NOT NULL
   );
+`);
 
+// Passage multi-tenant (one-time) : SQLite interdit d'ajouter par ALTER une colonne
+// à la fois NOT NULL et FK. Comme on repart de zéro sur les données métier, on drop
+// les tables dépourvues de user_id ; les CREATE ci-dessous les recréent au bon schéma.
+// (pragma table_info renvoie [] si la table n'existe pas → première install : rien à drop.)
+const recipeCols = sqlite.pragma('table_info(recipes)');
+if (recipeCols.length > 0 && !recipeCols.some((c) => c.name === 'user_id')) {
+  sqlite.exec(`
+    DROP TABLE IF EXISTS shopping_items;
+    DROP TABLE IF EXISTS recipe_ingredients;
+    DROP TABLE IF EXISTS recipes;
+  `);
+}
+
+sqlite.exec(`
   CREATE TABLE IF NOT EXISTS recipes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     code TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     description TEXT DEFAULT '',
@@ -55,6 +80,7 @@ sqlite.exec(`
 
   CREATE TABLE IF NOT EXISTS shopping_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     recipe_id INTEGER REFERENCES recipes(id) ON DELETE SET NULL,
     canonical_id INTEGER REFERENCES ingredient_catalog(id) ON DELETE SET NULL,
     recipe_title TEXT DEFAULT '',

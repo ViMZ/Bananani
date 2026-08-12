@@ -1,6 +1,6 @@
 import { db } from './db/index.js';
 import { recipes, recipeIngredients } from './db/schema.js';
-import { eq, inArray, desc } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { generateRecipeCode } from './codes.js';
 import { savePhoto, deletePhoto } from './uploads.js';
 import { resolveOrCreate } from './ingredients/catalog.js';
@@ -64,8 +64,8 @@ async function uniqueRecipeCode() {
   throw new Error('Impossible de générer un code unique');
 }
 
-/** @param {FormData} formData */
-export async function createRecipe(formData) {
+/** @param {number} userId @param {FormData} formData */
+export async function createRecipe(userId, formData) {
   const title = String(formData.get('title') ?? '').trim();
   if (!title) throw new Error('Le titre est requis');
 
@@ -76,6 +76,7 @@ export async function createRecipe(formData) {
   const [inserted] = await db
     .insert(recipes)
     .values({
+      userId,
       code,
       title,
       description: String(formData.get('description') ?? '').trim(),
@@ -94,9 +95,13 @@ export async function createRecipe(formData) {
   return inserted;
 }
 
-/** @param {number} id @param {FormData} formData */
-export async function updateRecipe(id, formData) {
-  const existing = await db.select().from(recipes).where(eq(recipes.id, id)).limit(1);
+/** @param {number} userId @param {number} id @param {FormData} formData */
+export async function updateRecipe(userId, id, formData) {
+  const existing = await db
+    .select()
+    .from(recipes)
+    .where(and(eq(recipes.id, id), eq(recipes.userId, userId)))
+    .limit(1);
   if (existing.length === 0) throw new Error('Recette introuvable');
   const current = existing[0];
 
@@ -135,17 +140,25 @@ export async function updateRecipe(id, formData) {
   return { id, code: current.code };
 }
 
-/** @param {number} id */
-export async function deleteRecipe(id) {
-  const existing = await db.select().from(recipes).where(eq(recipes.id, id)).limit(1);
+/** @param {number} userId @param {number} id */
+export async function deleteRecipe(userId, id) {
+  const existing = await db
+    .select()
+    .from(recipes)
+    .where(and(eq(recipes.id, id), eq(recipes.userId, userId)))
+    .limit(1);
   if (existing.length === 0) return;
   deletePhoto(existing[0].photoPath);
-  await db.delete(recipes).where(eq(recipes.id, id));
+  await db.delete(recipes).where(and(eq(recipes.id, id), eq(recipes.userId, userId)));
 }
 
-/** @param {number} id */
-export async function getRecipeWithIngredients(id) {
-  const r = await db.select().from(recipes).where(eq(recipes.id, id)).limit(1);
+/** @param {number} userId @param {number} id */
+export async function getRecipeWithIngredients(userId, id) {
+  const r = await db
+    .select()
+    .from(recipes)
+    .where(and(eq(recipes.id, id), eq(recipes.userId, userId)))
+    .limit(1);
   if (r.length === 0) return null;
   const ings = await db
     .select()
@@ -159,9 +172,10 @@ export async function getRecipeWithIngredients(id) {
  * Recettes pour la planche imprimable (photo + titre + QR), sans les ingrédients.
  * Si `ids` est fourni, ne renvoie que ces recettes, dans l'ordre des ids reçus
  * (inArray ne garantit pas l'ordre SQL). Sinon, toutes, du plus récent au plus ancien.
+ * @param {number} userId
  * @param {number[] | null} ids
  */
-export async function getRecipesForCards(ids) {
+export async function getRecipesForCards(userId, ids) {
   const cols = {
     id: recipes.id,
     code: recipes.code,
@@ -171,16 +185,27 @@ export async function getRecipesForCards(ids) {
     photoPath: recipes.photoPath
   };
   if (ids && ids.length > 0) {
-    const rows = await db.select(cols).from(recipes).where(inArray(recipes.id, ids));
+    const rows = await db
+      .select(cols)
+      .from(recipes)
+      .where(and(eq(recipes.userId, userId), inArray(recipes.id, ids)));
     const byId = new Map(rows.map((r) => [r.id, r]));
     return ids.map((id) => byId.get(id)).filter(Boolean);
   }
-  return db.select(cols).from(recipes).orderBy(desc(recipes.createdAt));
+  return db
+    .select(cols)
+    .from(recipes)
+    .where(eq(recipes.userId, userId))
+    .orderBy(desc(recipes.createdAt));
 }
 
-/** @param {string} code */
-export async function getRecipeByCode(code) {
-  const r = await db.select().from(recipes).where(eq(recipes.code, code)).limit(1);
+/** @param {number} userId @param {string} code */
+export async function getRecipeByCode(userId, code) {
+  const r = await db
+    .select()
+    .from(recipes)
+    .where(and(eq(recipes.code, code), eq(recipes.userId, userId)))
+    .limit(1);
   if (r.length === 0) return null;
   const ings = await db
     .select()

@@ -7,10 +7,10 @@ export async function load() {
 }
 
 export const actions = {
-  default: async ({ request }) => {
+  default: async ({ request, locals }) => {
     const formData = await request.formData();
     try {
-      const created = await createRecipe(formData);
+      const created = await createRecipe(locals.user.id, formData);
       throw redirect(303, `/recipes/${created.id}`);
     } catch (err) {
       if (err && /** @type {any} */ (err).status === 303) throw err;

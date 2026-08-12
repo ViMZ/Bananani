@@ -1,18 +1,23 @@
 /**
  * Fixtures de dev : insère 10 recettes avec leurs ingrédients.
  *
- * Usage : npm run db:seed          (n'insère que si la table recipes est vide)
- *         npm run db:seed -- --force  (vide recipes/recipe_ingredients puis réinsère)
+ * Usage : npm run db:seed -- --user <identifiant>          (n'insère que si le compte n'a pas de recette)
+ *         npm run db:seed -- --user <identifiant> --force  (vide ses recettes puis réinsère)
  *
+ * Multi-tenant : les recettes appartiennent à un compte. Sans --user, le premier
+ * compte créé est utilisé (crée-en un avec `npm run user:create` au préalable).
  * À ne lancer qu'en dev — n'ajoute rien à shopping_items.
  */
 import { db } from '../src/lib/server/db/index.js';
 import { recipes, recipeIngredients } from '../src/lib/server/db/schema.js';
 import { generateRecipeCode } from '../src/lib/server/codes.js';
 import { resolveOrCreate } from '../src/lib/server/ingredients/catalog.js';
+import { getUserByUsername, listUsers } from '../src/lib/server/users.js';
 import { eq } from 'drizzle-orm';
 
 const force = process.argv.includes('--force');
+const userFlagIndex = process.argv.indexOf('--user');
+const userArg = userFlagIndex !== -1 ? process.argv[userFlagIndex + 1] : null;
 
 /**
  * @typedef {{ name: string, brand?: string, productReference?: string,
@@ -166,18 +171,42 @@ const FIXTURES = [
   }
 ];
 
+async function resolveUser() {
+  if (userArg) {
+    const u = await getUserByUsername(userArg);
+    if (!u) {
+      console.error(`✗ Aucun compte « ${userArg} ». Crée-le avec npm run user:create.`);
+      process.exit(1);
+    }
+    return u;
+  }
+  const all = await listUsers();
+  if (all.length === 0) {
+    console.error('✗ Aucun compte. Crée-en un avec `npm run user:create -- <identifiant>`.');
+    process.exit(1);
+  }
+  return all[0];
+}
+
 async function seed() {
-  const existing = await db.select().from(recipes).limit(1);
+  const user = await resolveUser();
+  console.log(`Compte cible : ${user.username}\n`);
+
+  const existing = await db
+    .select()
+    .from(recipes)
+    .where(eq(recipes.userId, user.id))
+    .limit(1);
   if (existing.length > 0) {
     if (!force) {
       console.log(
-        'La table recipes contient déjà des données. Relance avec `-- --force` pour réinitialiser.'
+        'Ce compte a déjà des recettes. Relance avec `--force` pour les réinitialiser.'
       );
       process.exit(0);
     }
-    console.log('--force : suppression des recettes existantes…');
-    await db.delete(recipeIngredients);
-    await db.delete(recipes);
+    console.log('--force : suppression des recettes existantes du compte…');
+    // recipe_ingredients part en cascade à la suppression des recettes.
+    await db.delete(recipes).where(eq(recipes.userId, user.id));
   }
 
   const used = new Set();
@@ -197,6 +226,7 @@ async function seed() {
     const [inserted] = await db
       .insert(recipes)
       .values({
+        userId: user.id,
         code: freshCode(),
         title: f.title,
         description: f.description,

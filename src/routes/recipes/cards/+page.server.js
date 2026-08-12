@@ -1,13 +1,13 @@
 import QRCode from 'qrcode';
 import { getRecipesForCards } from '$lib/server/recipes';
 
-export async function load({ url }) {
+export async function load({ url, locals }) {
   const p = url.searchParams.get('ids');
   const ids = p
     ? p.split(',').map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n > 0)
     : null;
 
-  const rows = await getRecipesForCards(ids);
+  const rows = await getRecipesForCards(locals.user.id, ids);
 
   // Pré-rendu serveur des QR (SVG inline) : mêmes réglages que la fiche A4
   // (margin 1 = quiet zone garantie, ECC M), générés en parallèle.
