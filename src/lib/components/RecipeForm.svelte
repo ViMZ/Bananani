@@ -56,9 +56,33 @@
     if (!item.unit && entry.unit) item.unit = entry.unit;
     if (!item.category && entry.category) item.category = entry.category;
   }
+
+  // Limite de taille de photo : alignée (avec marge) sur BODY_SIZE_LIMIT d'adapter-node
+  // (16 Mo côté serveur). On valide AVANT soumission pour ne jamais perdre la saisie :
+  // un POST trop lourd renvoie une 500 qui réinitialise tout le formulaire.
+  const MAX_PHOTO_MB = 15;
+  const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
+  let photoError = $state('');
+
+  function onPhotoChange(e) {
+    photoError = '';
+    const file = e.currentTarget.files?.[0];
+    if (file && file.size > MAX_PHOTO_BYTES) {
+      const mb = (file.size / 1024 / 1024).toFixed(1);
+      photoError = `Cette photo fait ${mb} Mo (maximum ${MAX_PHOTO_MB} Mo). Choisis une image plus légère avant d'enregistrer — ta saisie est conservée.`;
+    }
+  }
+
+  function onSubmit(e) {
+    if (photoError) {
+      e.preventDefault();
+      // Ramène l'utilisateur au message d'erreur.
+      document.getElementById('photo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
 </script>
 
-<form method="POST" enctype="multipart/form-data" class="space-y-10">
+<form method="POST" enctype="multipart/form-data" class="space-y-10" onsubmit={onSubmit}>
   <!-- Identité -->
   <section class="card">
     <div class="h-eyebrow mb-5">— Identité de la recette</div>
@@ -94,7 +118,13 @@
 
       <div>
         <label class="label" for="photo">Photo du plat</label>
-        <input class="input file:mr-3 file:border-0 file:bg-mare file:text-panna file:px-3 file:py-1.5 file:rounded file:font-sans file:text-xs file:font-medium file:cursor-pointer file:hover:bg-mare-deep" id="photo" name="photo" type="file" accept="image/*" />
+        <input class="input file:mr-3 file:border-0 file:bg-mare file:text-panna file:px-3 file:py-1.5 file:rounded file:font-sans file:text-xs file:font-medium file:cursor-pointer file:hover:bg-mare-deep" id="photo" name="photo" type="file" accept="image/*" onchange={onPhotoChange} />
+        <p class="text-xs text-sepia italic mt-1.5">JPEG, PNG, WebP ou GIF · {MAX_PHOTO_MB} Mo maximum.</p>
+        {#if photoError}
+          <p class="mt-2 text-sm italic text-terra bg-terra-soft/40 border border-terra/30 rounded px-3 py-2">
+            {photoError}
+          </p>
+        {/if}
         {#if recipe.photoPath}
           <div class="mt-3 flex items-center gap-4 p-3 bg-sand rounded border border-umber/15">
             <img src={recipe.photoPath} alt="Photo actuelle" class="w-20 h-20 object-cover rounded shadow-soft" />
