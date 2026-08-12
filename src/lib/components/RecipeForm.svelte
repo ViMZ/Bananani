@@ -57,27 +57,95 @@
     if (!item.category && entry.category) item.category = entry.category;
   }
 
-  // Limite de taille de photo : alignée (avec marge) sur BODY_SIZE_LIMIT d'adapter-node
-  // (16 Mo côté serveur). On valide AVANT soumission pour ne jamais perdre la saisie :
-  // un POST trop lourd renvoie une 500 qui réinitialise tout le formulaire.
-  const MAX_PHOTO_MB = 15;
+  // --- Photo : compression/redimensionnement automatique côté client ---
+  // On redimensionne au choix du fichier (canvas → JPEG) pour éviter les uploads
+  // lourds : plus besoin de réduire l'image soi-même, et on ne dépasse plus la
+  // limite serveur (BODY_SIZE_LIMIT). Une validation de taille reste en filet de
+  // sécurité — un POST trop lourd renverrait une 500 qui efface toute la saisie.
+  const MAX_PHOTO_MB = 15; // garde-fou sur l'original (aligné, avec marge, sur les 16 Mo serveur)
   const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
-  let photoError = $state('');
+  const MAX_DIM = 1600; // plus grand côté après redimensionnement
+  const JPEG_QUALITY = 0.82;
+  const COMPRESS_IF_OVER_BYTES = 1024 * 1024; // ne recompresse pas les images déjà légères
+  const COMPRESSIBLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
-  function onPhotoChange(e) {
+  let photoError = $state('');
+  let photoInfo = $state('');
+  let compressing = $state(false);
+
+  /**
+   * Renvoie une version optimisée (JPEG redimensionné) si utile, sinon le fichier tel quel.
+   * @param {File} file
+   */
+  async function maybeCompress(file) {
+    if (!COMPRESSIBLE.has(file.type)) return file; // gif animé, etc. → inchangé
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch {
+      try {
+        bitmap = await createImageBitmap(file);
+      } catch {
+        return file; // décodage impossible → on laisse la validation de taille agir
+      }
+    }
+    const { width, height } = bitmap;
+    const scale = Math.min(1, MAX_DIM / Math.max(width, height));
+    if (scale === 1 && file.size <= COMPRESS_IF_OVER_BYTES) {
+      bitmap.close?.();
+      return file; // déjà petite et légère : inutile de recompresser (évite une perte de qualité)
+    }
+    const w = Math.round(width * scale);
+    const h = Math.round(height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; // fond blanc au cas où l'original a de la transparence
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', JPEG_QUALITY));
+    if (!blob || blob.size >= file.size) return file; // pas plus léger → garder l'original
+    const base = (file.name || 'photo').replace(/\.[^.]+$/, '');
+    return new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
+  }
+
+  async function onPhotoChange(e) {
     photoError = '';
-    const file = e.currentTarget.files?.[0];
-    if (file && file.size > MAX_PHOTO_BYTES) {
-      const mb = (file.size / 1024 / 1024).toFixed(1);
-      photoError = `Cette photo fait ${mb} Mo (maximum ${MAX_PHOTO_MB} Mo). Choisis une image plus légère avant d'enregistrer — ta saisie est conservée.`;
+    photoInfo = '';
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    compressing = true;
+    try {
+      const out = await maybeCompress(file);
+      if (out !== file) {
+        // Remplace le fichier de l'input par la version optimisée (soumise au submit).
+        const dt = new DataTransfer();
+        dt.items.add(out);
+        input.files = dt.files;
+        photoInfo = `Photo optimisée : ${(file.size / 1024 / 1024).toFixed(1)} Mo → ${(out.size / 1024 / 1024).toFixed(1)} Mo`;
+      }
+    } catch {
+      // Compression indisponible : on garde l'original, la validation ci-dessous prend le relais.
+    } finally {
+      compressing = false;
+    }
+
+    const finalFile = input.files?.[0];
+    if (finalFile && finalFile.size > MAX_PHOTO_BYTES) {
+      photoError = `Même optimisée, cette photo fait ${(finalFile.size / 1024 / 1024).toFixed(1)} Mo (maximum ${MAX_PHOTO_MB} Mo). Choisis une image plus légère — ta saisie est conservée.`;
     }
   }
 
   function onSubmit(e) {
-    if (photoError) {
+    if (compressing || photoError) {
       e.preventDefault();
-      // Ramène l'utilisateur au message d'erreur.
-      document.getElementById('photo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (photoError) {
+        document.getElementById('photo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   }
 </script>
@@ -119,7 +187,15 @@
       <div>
         <label class="label" for="photo">Photo du plat</label>
         <input class="input file:mr-3 file:border-0 file:bg-mare file:text-panna file:px-3 file:py-1.5 file:rounded file:font-sans file:text-xs file:font-medium file:cursor-pointer file:hover:bg-mare-deep" id="photo" name="photo" type="file" accept="image/*" onchange={onPhotoChange} />
-        <p class="text-xs text-sepia italic mt-1.5">JPEG, PNG, WebP ou GIF · {MAX_PHOTO_MB} Mo maximum.</p>
+        <p class="text-xs text-sepia italic mt-1.5">
+          JPEG, PNG, WebP ou GIF · les grandes photos sont automatiquement optimisées.
+        </p>
+        {#if compressing}
+          <p class="mt-2 text-sm italic text-mare">Optimisation de la photo…</p>
+        {/if}
+        {#if photoInfo}
+          <p class="mt-2 text-sm italic text-oliva">{photoInfo}</p>
+        {/if}
         {#if photoError}
           <p class="mt-2 text-sm italic text-terra bg-terra-soft/40 border border-terra/30 rounded px-3 py-2">
             {photoError}
@@ -187,6 +263,8 @@
 
   <div class="flex flex-wrap gap-3 justify-end">
     <a href={cancelHref} class="btn-secondary">Annuler</a>
-    <button type="submit" class="btn-primary btn-lg">{submitLabel}</button>
+    <button type="submit" class="btn-primary btn-lg" disabled={compressing}>
+      {compressing ? 'Optimisation…' : submitLabel}
+    </button>
   </div>
 </form>
