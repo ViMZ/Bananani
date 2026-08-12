@@ -8,6 +8,9 @@ dockerfile = "Dockerfile"
 DATA_DIR = "/data"
 PORT = "8080"
 HOST = "0.0.0.0"
+# adapter-node limite le corps des requêtes à 512 Ko par défaut : trop juste pour
+# l'upload de photos de recettes (plusieurs Mo). On relève à 16 Mo.
+BODY_SIZE_LIMIT = "16M"
 # Faire confiance aux headers du load balancer Fly (HTTPS termination chez eux).
 # Nécessaire pour le check CSRF de SvelteKit et le flag Secure des cookies.
 PROTOCOL_HEADER = "x-forwarded-proto"
