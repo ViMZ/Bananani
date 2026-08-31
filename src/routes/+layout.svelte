@@ -90,7 +90,7 @@
             {#if isActive(item.href)}
               <span class="text-mare text-xs leading-none mb-1">✦</span>
             {:else}
-              <span class="opacity-0 text-xs leading-none mb-1">·</span>
+              <span class="text-sepia opacity-40 text-xs leading-none mb-1" aria-hidden="true">✦</span>
             {/if}
             {item.label}
           </a>
