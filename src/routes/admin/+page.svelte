@@ -139,13 +139,13 @@
               <div class="code text-[11px]">créé le {u.createdAt}</div>
             </div>
 
-            <div class="flex items-center gap-2">
-              <form method="POST" action="?/passwd" class="flex items-center gap-2">
+            <div class="grid w-full gap-2 sm:w-auto sm:flex sm:items-center">
+              <form method="POST" action="?/passwd" class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex">
                 <input type="hidden" name="id" value={u.id} />
                 <input
                   name="password"
                   type="text"
-                  class="input py-1.5 px-3 text-sm w-40"
+                  class="input min-w-0 py-1.5 px-3 text-sm sm:w-40"
                   autocapitalize="none"
                   autocorrect="off"
                   spellcheck="false"
@@ -156,9 +156,9 @@
                 </button>
               </form>
 
-              <form method="POST" action="?/delete" onsubmit={(e) => confirmDelete(e, u.username)}>
+              <form method="POST" action="?/delete" class="w-full sm:w-auto" onsubmit={(e) => confirmDelete(e, u.username)}>
                 <input type="hidden" name="id" value={u.id} />
-                <button type="submit" class="btn-danger btn-sm">Supprimer</button>
+                <button type="submit" class="btn-danger btn-sm w-full sm:w-auto">Supprimer</button>
               </form>
             </div>
           </li>
