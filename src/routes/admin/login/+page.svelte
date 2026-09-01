@@ -13,6 +13,7 @@
       <div class="h-eyebrow mb-2">Bananani</div>
       <h1 class="h-display text-5xl md:text-6xl italic">Back-office</h1>
       <p class="text-sepia italic mt-3">Gestion des comptes utilisateurs.</p>
+      <a href="/" class="inline-block mt-4 btn-ghost btn-sm">← Retour à l’application</a>
     </header>
 
     {#if !data.enabled}
