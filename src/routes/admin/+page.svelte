@@ -24,9 +24,12 @@
       <div class="h-eyebrow mb-1">Back-office</div>
       <h1 class="h-display text-4xl md:text-5xl italic">Comptes</h1>
     </div>
-    <form method="POST" action="/admin/logout">
-      <button type="submit" class="btn-ghost btn-sm">Quitter</button>
-    </form>
+    <div class="flex items-center gap-2">
+      <a href="/" class="btn-ghost btn-sm">← Retour à l’application</a>
+      <form method="POST" action="/admin/logout">
+        <button type="submit" class="btn-ghost btn-sm">Quitter</button>
+      </form>
+    </div>
   </header>
 
   {#if form?.error}
