@@ -36,13 +36,13 @@
   function onLogoClick(event) {
     cancelAdminTimer();
     if (openedAdmin) {
-      event.preventDefault();
       return;
     }
     if (event.altKey) {
-      event.preventDefault();
       openAdmin();
+      return;
     }
+    window.location.assign('/');
   }
 
   function onLogoKeydown(event) {
@@ -68,14 +68,15 @@
     <!-- Header desktop -->
     <header class="no-print bg-linen/80 backdrop-blur-sm border-b border-umber/15 sticky top-0 z-30">
       <div class="max-w-6xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-6">
-        <a
-          href="/"
-          class="group inline-flex items-center gap-2"
+        <button
+          type="button"
+          class="group inline-flex items-center gap-2 bg-transparent border-0 p-0 text-left"
           aria-label="Bananani — Accueil"
           onpointerdown={onLogoPointerDown}
           onpointerup={cancelAdminTimer}
           onpointercancel={cancelAdminTimer}
           onpointerleave={cancelAdminTimer}
+          oncontextmenu={(event) => event.preventDefault()}
           onclick={onLogoClick}
           onkeydown={onLogoKeydown}
         >
@@ -83,7 +84,7 @@
           <span class="font-display italic text-3xl md:text-[28px] leading-none text-umber tracking-tight">
             Bananani
           </span>
-        </a>
+        </button>
 
         <!-- Nav desktop -->
         <nav class="hidden md:flex items-center gap-7">
