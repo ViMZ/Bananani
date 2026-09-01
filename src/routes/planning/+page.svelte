@@ -17,6 +17,35 @@
   let currentWeek = $derived(mondayOf(new Date()));
 
   let query = $state('');
+  let copyBusy = $state(false);
+  let copyMessage = $state('');
+  let copyWeek = $state('');
+
+  async function copyPreviousWeek() {
+    if (copyBusy) return;
+    copyBusy = true;
+    copyMessage = '';
+    copyWeek = weekStart;
+    try {
+      const fd = new FormData();
+      fd.append('weekStart', copyWeek);
+      const res = await fetch('?/copyPrevious', { method: 'POST', body: fd });
+      const result = deserialize(await res.text());
+      if (result.type !== 'success') {
+        copyMessage = 'Impossible de recopier la semaine. Réessayez.';
+        return;
+      }
+      const { copied, empty } = result.data;
+      copyMessage = empty ? 'Aucune recette la semaine précédente.'
+        : copied === 0 ? 'Les recettes sont déjà présentes cette semaine.'
+        : `${copied} recette${copied > 1 ? 's' : ''} recopiée${copied > 1 ? 's' : ''}. Vos repas existants sont conservés.`;
+      await invalidateAll();
+    } catch {
+      copyMessage = 'Impossible de confirmer la copie. Réessayez sans risque de doublons.';
+    } finally {
+      copyBusy = false;
+    }
+  }
 
   // Construit les créneaux : slots[dayOfWeek] = { midi: [], soir: [] }.
   function buildSlots() {
@@ -197,6 +226,21 @@
       {/if}
     </div>
     <a href="?week={addWeeks(weekStart, 1)}" class="btn-ghost btn-sm" aria-label="Semaine suivante">›</a>
+  </div>
+
+  <div class="-mt-3 mb-5 text-center no-print">
+    <button
+      type="button"
+      class="px-3 py-2 text-xs text-sepia hover:text-mare transition-colors rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-mare disabled:opacity-50"
+      onclick={copyPreviousWeek}
+      disabled={copyBusy}
+      title="Ajouter les recettes de la semaine précédente aux mêmes jours et créneaux, sans écraser vos repas."
+    >
+      {copyBusy ? 'Copie en cours…' : 'Recopier la semaine précédente'}
+    </button>
+    <p role="status" class="text-xs text-sepia mt-1">
+      {copyWeek === weekStart ? copyMessage : ''}
+    </p>
   </div>
 
   <!-- Les 7 jours -->

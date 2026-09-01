@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { mealPlan, recipes, shoppingItems } from '$lib/server/db/schema';
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { getRecipesForCards, getRecipeWithIngredients } from '$lib/server/recipes';
-import { mondayOf, todayISO, isValidISO, isPastDay } from '$lib/date/week';
+import { mondayOf, todayISO, isValidISO, isPastDay, addWeeks, parseISO } from '$lib/date/week';
 
 export async function load({ url, locals }) {
   const userId = locals.user.id;
@@ -56,6 +56,53 @@ function cleanMeal(v) {
 }
 
 export const actions = {
+  // Compléter la semaine affichée sans écraser les repas ni dupliquer une copie.
+  copyPrevious: async ({ request, locals }) => {
+    const userId = locals.user.id;
+    const fd = await request.formData();
+    const weekStart = String(fd.get('weekStart') ?? '');
+    const date = parseISO(weekStart);
+    if (!date || mondayOf(date) !== weekStart) {
+      return fail(400, { error: 'Semaine invalide' });
+    }
+
+    return db.transaction((tx) => {
+      const previous = tx.select({
+        recipeId: mealPlan.recipeId, dayOfWeek: mealPlan.dayOfWeek,
+        meal: mealPlan.meal, position: mealPlan.position
+      }).from(mealPlan)
+        .innerJoin(recipes, eq(mealPlan.recipeId, recipes.id))
+        .where(and(eq(mealPlan.userId, userId), eq(recipes.userId, userId),
+          eq(mealPlan.weekStart, addWeeks(weekStart, -1))))
+        .orderBy(asc(mealPlan.position), asc(mealPlan.id)).all();
+      if (!previous.length) return { copied: 0, empty: true };
+
+      const existing = tx.select().from(mealPlan)
+        .where(and(eq(mealPlan.userId, userId), eq(mealPlan.weekStart, weekStart))).all();
+      const counts = new Map();
+      const positions = new Map();
+      const slotKey = (p) => `${p.dayOfWeek}:${p.meal}`;
+      const recipeKey = (p) => `${slotKey(p)}:${p.recipeId}`;
+      for (const p of existing) {
+        counts.set(recipeKey(p), (counts.get(recipeKey(p)) ?? 0) + 1);
+        positions.set(slotKey(p), Math.max(positions.get(slotKey(p)) ?? -1, p.position ?? 0));
+      }
+      let copied = 0;
+      for (const p of previous) {
+        const count = counts.get(recipeKey(p)) ?? 0;
+        if (count > 0) {
+          counts.set(recipeKey(p), count - 1);
+          continue;
+        }
+        const position = (positions.get(slotKey(p)) ?? -1) + 1;
+        tx.insert(mealPlan).values({ ...p, userId, weekStart, position }).run();
+        positions.set(slotKey(p), position);
+        copied++;
+      }
+      return { copied, empty: false };
+    });
+  },
+
   // Poser une recette sur un jour.
   place: async ({ request, locals }) => {
     const userId = locals.user.id;
