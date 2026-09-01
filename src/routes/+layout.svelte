@@ -70,13 +70,15 @@
       <div class="max-w-6xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-6">
         <button
           type="button"
-          class="group inline-flex items-center gap-2 bg-transparent border-0 p-0 text-left"
+          class="group inline-flex items-center gap-2 bg-transparent border-0 p-0 text-left select-none"
+          style="-webkit-touch-callout: none;"
           aria-label="Bananani — Accueil"
           onpointerdown={onLogoPointerDown}
           onpointerup={cancelAdminTimer}
           onpointercancel={cancelAdminTimer}
           onpointerleave={cancelAdminTimer}
           oncontextmenu={(event) => event.preventDefault()}
+          onselectstart={(event) => event.preventDefault()}
           onclick={onLogoClick}
           onkeydown={onLogoKeydown}
         >
