@@ -14,6 +14,44 @@
     { href: '/shopping', label: 'Courses' }
   ];
 
+  let adminTimer;
+  let openedAdmin = false;
+
+  function openAdmin() {
+    openedAdmin = true;
+    window.location.assign('/admin/login');
+  }
+
+  function onLogoPointerDown(event) {
+    if (event.pointerType !== 'touch') return;
+    openedAdmin = false;
+    adminTimer = window.setTimeout(openAdmin, 800);
+  }
+
+  function cancelAdminTimer() {
+    if (adminTimer) window.clearTimeout(adminTimer);
+    adminTimer = undefined;
+  }
+
+  function onLogoClick(event) {
+    cancelAdminTimer();
+    if (openedAdmin) {
+      event.preventDefault();
+      return;
+    }
+    if (event.altKey) {
+      event.preventDefault();
+      openAdmin();
+    }
+  }
+
+  function onLogoKeydown(event) {
+    if (event.altKey && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      openAdmin();
+    }
+  }
+
   function isActive(href) {
     if (href === '/') return $page.url.pathname === '/';
     return $page.url.pathname.startsWith(href);
@@ -30,7 +68,17 @@
     <!-- Header desktop -->
     <header class="no-print bg-linen/80 backdrop-blur-sm border-b border-umber/15 sticky top-0 z-30">
       <div class="max-w-6xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-6">
-        <a href="/" class="group inline-flex items-center gap-2">
+        <a
+          href="/"
+          class="group inline-flex items-center gap-2"
+          aria-label="Bananani — Accueil"
+          onpointerdown={onLogoPointerDown}
+          onpointerup={cancelAdminTimer}
+          onpointercancel={cancelAdminTimer}
+          onpointerleave={cancelAdminTimer}
+          onclick={onLogoClick}
+          onkeydown={onLogoKeydown}
+        >
           <span class="text-limone text-lg leading-none">✦</span>
           <span class="font-display italic text-3xl md:text-[28px] leading-none text-umber tracking-tight">
             Bananani
