@@ -30,7 +30,9 @@ npm run preview      # preview du build
 ### Importer une recette papier
 
 Dans « Nouvelle recette », prendre une photo ou choisir une image JPEG, PNG ou
-WebP (une page, 10 Mo maximum), puis lancer l’analyse. Appliquer le résultat au
+WebP (une page), puis lancer l’analyse. Les photos sont automatiquement réduites
+à 3 000 pixels sur le grand côté et compressées en JPEG si cela les allège, avant
+de vérifier la limite d’envoi de 10 Mo. Appliquer le résultat au
 formulaire et le relire avant l’enregistrement. Les images sont transmises à
 Mistral et ne sont pas conservées par Bananani pour le scan.
 

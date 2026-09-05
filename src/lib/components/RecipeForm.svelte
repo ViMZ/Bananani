@@ -19,16 +19,24 @@
   let scanResult = $state(null);
   let scanApplied = $state(false);
   let scanFile = $state(null);
+  let scanPreparing = $state(false);
+  let scanInfo = $state('');
 
   async function scan() {
     if (!scanFile || scanning) return;
     scanning = true;
     scanError = '';
     scanResult = null;
+    scanInfo = '';
     try {
-      if (scanFile.size > 10 * 1024 * 1024) throw new Error('Choisis une image de moins de 10 Mo.');
+      scanPreparing = true;
+      // Plus de résolution que pour une photo de plat : préserver les petits caractères.
+      const image = await maybeCompress(scanFile, 3000, 0.9);
+      scanPreparing = false;
+      if (image.size > 10 * 1024 * 1024) throw new Error('Cette photo reste trop volumineuse après optimisation. Essaie une photo plus rapprochée de la recette ou une image JPEG.');
+      if (image !== scanFile) scanInfo = `Photo optimisée : ${(scanFile.size / 1024 / 1024).toFixed(1)} Mo → ${(image.size / 1024 / 1024).toFixed(1)} Mo`;
       const body = new FormData();
-      body.append('image', scanFile);
+      body.append('image', image);
       const response = await fetch('/recipes/ocr', { method: 'POST', body });
       if (response.redirected) throw new Error('Ta session a expiré. Reconnecte-toi pour scanner.');
       const result = await response.json();
@@ -36,7 +44,7 @@
       scanResult = result;
     } catch (err) {
       scanError = err instanceof Error ? err.message : 'Le scan a échoué. Réessaie.';
-    } finally { scanning = false; }
+    } finally { scanning = false; scanPreparing = false; }
   }
 
   function applyScan() {
@@ -113,7 +121,7 @@
    * Renvoie une version optimisée (JPEG redimensionné) si utile, sinon le fichier tel quel.
    * @param {File} file
    */
-  async function maybeCompress(file) {
+  async function maybeCompress(file, maxDimension = MAX_DIM, quality = JPEG_QUALITY) {
     if (!COMPRESSIBLE.has(file.type)) return file; // gif animé, etc. → inchangé
     let bitmap;
     try {
@@ -122,11 +130,22 @@
       try {
         bitmap = await createImageBitmap(file);
       } catch {
-        return file; // décodage impossible → on laisse la validation de taille agir
+        // Repli pour les navigateurs mobiles sans createImageBitmap fonctionnel.
+        const objectUrl = URL.createObjectURL(file);
+        try {
+          bitmap = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = objectUrl;
+          });
+        } catch {
+          return file;
+        } finally { URL.revokeObjectURL(objectUrl); }
       }
     }
     const { width, height } = bitmap;
-    const scale = Math.min(1, MAX_DIM / Math.max(width, height));
+    const scale = Math.min(1, maxDimension / Math.max(width, height));
     if (scale === 1 && file.size <= COMPRESS_IF_OVER_BYTES) {
       bitmap.close?.();
       return file; // déjà petite et légère : inutile de recompresser (évite une perte de qualité)
@@ -141,7 +160,7 @@
     ctx.fillRect(0, 0, w, h);
     ctx.drawImage(bitmap, 0, 0, w, h);
     bitmap.close?.();
-    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', JPEG_QUALITY));
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
     if (!blob || blob.size >= file.size) return file; // pas plus léger → garder l'original
     const base = (file.name || 'photo').replace(/\.[^.]+$/, '');
     return new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
@@ -200,11 +219,12 @@
         <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={scanning} onchange={(e) => { scanFile = e.currentTarget.files?.[0] ?? null; scanResult = null; scanError = ''; }} />
       </label>
     </div>
-    <p class="text-xs text-sepia">Une page · JPEG, PNG ou WebP · 10 Mo maximum · photo nette et bien éclairée</p>
+    <p class="text-xs text-sepia">Une page · JPEG, PNG ou WebP · photos automatiquement optimisées · photo nette et bien éclairée</p>
     {#if scanFile}<p class="text-sm break-all">{scanFile.name}</p>{/if}
-    <button type="button" class="btn-primary" disabled={!scanFile || scanning} onclick={scan}>{scanning ? 'Lecture de la recette…' : 'Analyser la recette'}</button>
+    <button type="button" class="btn-primary" disabled={!scanFile || scanning} onclick={scan}>{scanPreparing ? 'Optimisation de la photo…' : scanning ? 'Lecture de la recette…' : 'Analyser la recette'}</button>
     <div aria-live="polite">
       {#if scanning}<p class="text-sm text-sepia">L’analyse peut prendre quelques dizaines de secondes.</p>{/if}
+      {#if scanInfo}<p class="text-sm text-mare">{scanInfo}</p>{/if}
       {#if scanError}<p role="alert" class="text-terra mt-3">{scanError}</p>{/if}
       {#if scanApplied}<p class="text-sm text-mare mt-3">Recette préremplie. Vérifie les quantités, les unités et les portions, puis clique sur « Créer la recette ».</p>{/if}
     </div>
