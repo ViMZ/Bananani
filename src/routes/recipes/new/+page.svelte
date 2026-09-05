@@ -24,5 +24,5 @@
 {/if}
 
 <div class="max-w-3xl mx-auto">
-  <RecipeForm catalog={data.catalog} submitLabel="Créer la recette" cancelHref="/recipes" />
+  <RecipeForm allowScan catalog={data.catalog} submitLabel="Créer la recette" cancelHref="/recipes" />
 </div>

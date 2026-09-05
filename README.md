@@ -27,6 +27,21 @@ npm run preview      # preview du build
 
 ## Hébergement : Fly.io
 
+### Importer une recette papier
+
+Dans « Nouvelle recette », prendre une photo ou choisir une image JPEG, PNG ou
+WebP (une page, 10 Mo maximum), puis lancer l’analyse. Appliquer le résultat au
+formulaire et le relire avant l’enregistrement. Les images sont transmises à
+Mistral et ne sont pas conservées par Bananani pour le scan.
+
+Configurer `MISTRAL_API_KEY` uniquement côté serveur : variable d’environnement
+en local, secret Fly.io en production (`fly secrets import` via l’entrée standard).
+Ne jamais placer la clé dans le dépôt ou une variable publique. L’extraction
+utilise `mistral-ocr-latest` avec annotations structurées. Limite : 20 analyses par
+utilisateur et par heure, un appel simultané ; compteur en mémoire réinitialisé
+au redémarrage. Délai maximal : 90 secondes.
+Vérifications : `node --test scripts/recipe-ocr.test.js` et `npm run build`.
+
 L'app tourne sur **https://bananani.fly.dev** (région `cdg`). Config dans
 [`fly.toml`](./fly.toml) + [`Dockerfile`](./Dockerfile).
 

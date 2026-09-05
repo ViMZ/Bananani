@@ -8,9 +8,45 @@
     recipe = { title: '', description: '', owner: '', servings: 2, instructions: '', photoPath: null },
     ingredients = [],
     catalog = [],
+    allowScan = false,
     submitLabel = 'Enregistrer',
     cancelHref = '/recipes'
   } = $props();
+
+  let formElement;
+  let scanning = $state(false);
+  let scanError = $state('');
+  let scanResult = $state(null);
+  let scanApplied = $state(false);
+  let scanFile = $state(null);
+
+  async function scan() {
+    if (!scanFile || scanning) return;
+    scanning = true;
+    scanError = '';
+    scanResult = null;
+    try {
+      if (scanFile.size > 10 * 1024 * 1024) throw new Error('Choisis une image de moins de 10 Mo.');
+      const body = new FormData();
+      body.append('image', scanFile);
+      const response = await fetch('/recipes/ocr', { method: 'POST', body });
+      if (response.redirected) throw new Error('Ta session a expiré. Reconnecte-toi pour scanner.');
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Le scan a échoué.');
+      scanResult = result;
+    } catch (err) {
+      scanError = err instanceof Error ? err.message : 'Le scan a échoué. Réessaie.';
+    } finally { scanning = false; }
+  }
+
+  function applyScan() {
+    for (const name of ['title', 'description', 'owner', 'servings', 'instructions']) {
+      formElement.elements.namedItem(name).value = scanResult.recipe[name] ?? '';
+    }
+    items = scanResult.ingredients.map((i) => ({ ...blank(), ...i }));
+    scanResult = null;
+    scanApplied = true;
+  }
 
   // Index normalizedKey -> { unité par défaut, catégorie } du catalogue, pour
   // pré-remplir unité et catégorie quand on saisit/choisit un ingrédient connu.
@@ -150,7 +186,45 @@
   }
 </script>
 
-<form method="POST" enctype="multipart/form-data" class="space-y-10" onsubmit={onSubmit}>
+{#if allowScan}
+  <section class="card mb-8 space-y-4">
+    <h2 class="h-eyebrow">Scanner une recette papier</h2>
+    <p class="text-sm text-sepia">Photographie une recette ou importe une image. Elle sera envoyée à Mistral pour extraire le texte, puis tu pourras le relire avant d’enregistrer.</p>
+    <div class="flex flex-wrap gap-3">
+      <label class="btn-secondary cursor-pointer">
+        Prendre une photo
+        <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={scanning} onchange={(e) => { scanFile = e.currentTarget.files?.[0] ?? null; scanResult = null; scanError = ''; }} />
+      </label>
+      <label class="btn-secondary cursor-pointer">
+        Choisir une image
+        <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={scanning} onchange={(e) => { scanFile = e.currentTarget.files?.[0] ?? null; scanResult = null; scanError = ''; }} />
+      </label>
+    </div>
+    <p class="text-xs text-sepia">Une page · JPEG, PNG ou WebP · 10 Mo maximum · photo nette et bien éclairée</p>
+    {#if scanFile}<p class="text-sm break-all">{scanFile.name}</p>{/if}
+    <button type="button" class="btn-primary" disabled={!scanFile || scanning} onclick={scan}>{scanning ? 'Lecture de la recette…' : 'Analyser la recette'}</button>
+    <div aria-live="polite">
+      {#if scanning}<p class="text-sm text-sepia">L’analyse peut prendre quelques dizaines de secondes.</p>{/if}
+      {#if scanError}<p role="alert" class="text-terra mt-3">{scanError}</p>{/if}
+      {#if scanApplied}<p class="text-sm text-mare mt-3">Recette préremplie. Vérifie les quantités, les unités et les portions, puis clique sur « Créer la recette ».</p>{/if}
+    </div>
+    {#if scanResult}
+      <div class="bg-linen rounded p-4 space-y-3">
+        <h3 class="font-display text-2xl italic">{scanResult.recipe.title || 'Titre à compléter'}</h3>
+        <p class="text-sm">{scanResult.ingredients.length} ingrédients · Portions : {scanResult.recipe.servings || 'à compléter'}</p>
+        <ul class="text-sm space-y-1">
+          {#each scanResult.ingredients as ingredient}<li>{ingredient.quantity} {ingredient.unit} {ingredient.name}{ingredient.notes ? ` — ${ingredient.notes}` : ''}</li>{/each}
+        </ul>
+        <details><summary class="cursor-pointer text-sm">Voir les étapes</summary><p class="whitespace-pre-wrap text-sm mt-2">{scanResult.recipe.instructions || 'Étapes à compléter'}</p></details>
+        <p class="text-sm text-sepia">Les champs du formulaire ci-dessous seront remplacés. La photo du plat sera conservée.</p>
+        <button type="button" class="btn-primary" onclick={applyScan}>Utiliser cette recette</button>
+        <button type="button" class="btn-secondary" onclick={() => scanResult = null}>Ignorer</button>
+      </div>
+    {/if}
+  </section>
+{/if}
+
+<form bind:this={formElement} method="POST" enctype="multipart/form-data" class="space-y-10" onsubmit={onSubmit}>
   <!-- Identité -->
   <section class="card">
     <div class="h-eyebrow mb-5">— Identité de la recette</div>
@@ -175,7 +249,7 @@
         </div>
         <div>
           <label class="label" for="servings">Personnes</label>
-          <input class="input font-display text-center text-xl" id="servings" name="servings" type="number" min="1" max="50" value={recipe.servings ?? 2} />
+          <input class="input font-display text-center text-xl" id="servings" name="servings" type="number" min="1" max="50" required={scanApplied} value={recipe.servings ?? 2} />
         </div>
       </div>
 
