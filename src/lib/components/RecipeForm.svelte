@@ -419,10 +419,7 @@
         {#if item.name.trim()}
           <div class="grid sm:grid-cols-2 gap-2 items-center">
             <label class="label" for={`category-${idx}`}>{item.name}</label>
-            <select id={`category-${idx}`} class="input" value={item.category} disabled={suggestingCategories} onchange={(e) => chooseCategory(item, e.currentTarget.value)}>
-              <option value="">À choisir ({byKey.get(normalizeName(item.name))?.category || 'Autres'} si laissé vide)</option>
-              {#each CATEGORIES as category}<option value={category}>{category}</option>{/each}
-            </select>
+            <Combobox id={`category-${idx}`} options={CATEGORIES} strict showAllOnFocus placeholder="À choisir" disabled={suggestingCategories} bind:value={item.category} onselect={() => chooseCategory(item, item.category)} />
           </div>
         {/if}
       {/each}

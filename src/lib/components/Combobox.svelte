@@ -8,6 +8,9 @@
     value = $bindable(''),
     options = [],
     name,
+    id = undefined,
+    disabled = false,
+    showAllOnFocus = false,
     placeholder = '',
     required = false,
     inputClass = 'input',
@@ -19,6 +22,7 @@
 
   let open = $state(false);
   let activeIndex = $state(-1);
+  let filtering = $state(false);
   let wrapperEl;
   let inputEl;
 
@@ -26,7 +30,7 @@
 
   // Suggestions filtrées par sous-chaîne (insensible casse/accents), plafonnées.
   let filtered = $derived.by(() => {
-    const q = norm(value).trim();
+    const q = showAllOnFocus && !filtering ? '' : norm(value).trim();
     const list = q ? options.filter((o) => norm(o).includes(q)) : options;
     return list.slice(0, 50);
   });
@@ -60,6 +64,7 @@
 
   function onFocus() {
     open = true;
+    filtering = false;
     // Sur mobile : remonter le champ vers le haut du viewport pour dégager de la
     // place sous le clavier virtuel et que la liste reste visible.
     setTimeout(() => {
@@ -98,25 +103,31 @@
     bind:this={inputEl}
     class={inputClass}
     {name}
+    {id}
+    {disabled}
     {placeholder}
     {required}
     autocomplete="off"
     bind:value
     onfocus={onFocus}
-    oninput={() => { open = true; activeIndex = -1; }}
+    onclick={() => { if (!open) filtering = false; open = true; }}
+    oninput={() => { open = true; filtering = true; activeIndex = -1; }}
     onchange={() => onselect()}
     onblur={onBlur}
     onkeydown={onKeydown}
   />
 
-  {#if open && filtered.length > 0}
+  {#if open && !disabled && filtered.length > 0}
     <ul class="combobox-list">
       {#each filtered as opt, i (opt)}
         <li>
+          <!-- Le clic est annulé lors d'un défilement tactile.
+               mousedown conserve le focus sans bloquer le geste tactile. -->
           <button
             type="button"
             class="combobox-option {i === activeIndex ? 'is-active' : ''}"
-            onpointerdown={(e) => { e.preventDefault(); choose(opt); }}
+            onmousedown={(e) => e.preventDefault()}
+            onclick={() => choose(opt)}
           >{opt}</button>
         </li>
       {/each}
