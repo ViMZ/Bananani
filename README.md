@@ -27,6 +27,20 @@ npm run preview      # preview du build
 
 ## Hébergement : Fly.io
 
+### Validation des rayons
+
+La création et la modification d’une recette passent par « Vérifier les rayons ».
+Les rayons connus du catalogue sont réutilisés. Un seul appel à
+`ministral-3b-2512` propose les rayons manquants, parmi la liste autorisée.
+Les noms des ingrédients inconnus sont transmis à Mistral avec la même clé
+serveur que l’OCR. La suggestion ne modifie pas la base : seuls les choix
+enregistrés avec la recette corrigent le catalogue commun (et donc le classement
+des ingrédients correspondants). Une valeur vide conserve le rayon déjà connu,
+ou reste dans « Autres » si aucun rayon n’existe.
+En cas d’échec, la sélection manuelle reste disponible. Limites : 100 ingrédients
+par requête, 30 appels par utilisateur et par heure en mémoire, délai de 20 s.
+Tests : `node --test scripts/ingredient-categories.test.js`.
+
 ### Importer une recette papier
 
 Dans « Nouvelle recette », prendre une photo ou choisir une image JPEG, PNG ou

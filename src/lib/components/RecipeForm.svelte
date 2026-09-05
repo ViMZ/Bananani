@@ -1,4 +1,5 @@
 <script>
+  import { tick } from 'svelte';
   import { normalizeName } from '$lib/ingredients/normalize';
   import { CATEGORIES } from '$lib/ingredients/categories';
   import { UNITS } from '$lib/ingredients/units';
@@ -21,6 +22,46 @@
   let scanFile = $state(null);
   let scanPreparing = $state(false);
   let scanInfo = $state('');
+  let reviewingCategories = $state(false);
+  let suggestingCategories = $state(false);
+  let categoryError = $state('');
+  let categorySection = $state();
+
+  async function reviewCategories() {
+    reviewingCategories = true;
+    suggestingCategories = true;
+    categoryError = '';
+    await tick();
+    categorySection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try {
+      for (const item of items) prefillFromCatalog(item);
+      const missing = items.filter(i => i.name.trim() && !i.category);
+      if (!missing.length) return;
+      const response = await fetch('/recipes/categories', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: missing.map(i => i.name.trim()) }),
+        signal: AbortSignal.timeout(25000)
+      });
+      if (response.redirected) throw new Error('Ta session a expiré. Reconnecte-toi pour obtenir des suggestions.');
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Suggestions indisponibles. Choisis les rayons manuellement.');
+      const suggestions = new Map((result.suggestions || []).map(i => [i.key, i.category]));
+      for (const item of missing) {
+        const category = suggestions.get(normalizeName(item.name));
+        if (!item.category && CATEGORIES.includes(category)) item.category = category;
+      }
+      categoryError = result.warning || '';
+    } catch (err) {
+      categoryError = err?.name === 'TimeoutError' ? 'Les suggestions prennent trop de temps. Choisis les rayons manuellement.'
+        : err instanceof Error ? err.message : 'Choisis les rayons manuellement.';
+    } finally { suggestingCategories = false; }
+  }
+
+  function chooseCategory(item, category) {
+    for (const other of items) {
+      if (normalizeName(other.name) === normalizeName(item.name)) other.category = category;
+    }
+  }
 
   async function scan() {
     if (!scanFile || scanning) return;
@@ -66,7 +107,7 @@
   const catalogNames = catalog.map((e) => e.name);
 
   function blank() {
-    return { name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '', category: '' };
+    return { name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '', category: '', categoryName: '' };
   }
 
   // À l'édition, la catégorie n'est pas stockée sur la ligne : on la retrouve via
@@ -76,6 +117,7 @@
       ? ingredients.map((i) => ({
           ...blank(),
           ...i,
+          categoryName: normalizeName(i.name),
           category: i.category || byKey.get(normalizeName(i.name))?.category || ''
         }))
       : [blank()]
@@ -95,7 +137,10 @@
 
   // Pré-remplit unité et catégorie depuis le catalogue sans écraser une saisie.
   function prefillFromCatalog(item) {
-    const entry = byKey.get(normalizeName(item.name));
+    const key = normalizeName(item.name);
+    if (item.categoryName && item.categoryName !== key) item.category = '';
+    item.categoryName = key;
+    const entry = byKey.get(key);
     if (!entry) return;
     if (!item.unit && entry.unit) item.unit = entry.unit;
     if (!item.category && entry.category) item.category = entry.category;
@@ -196,16 +241,21 @@
   }
 
   function onSubmit(e) {
-    if (compressing || photoError) {
+    if (compressing || photoError || scanning || suggestingCategories) {
       e.preventDefault();
       if (photoError) {
         document.getElementById('photo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
+      return;
+    }
+    if (!reviewingCategories) {
+      e.preventDefault();
+      reviewCategories();
     }
   }
 </script>
 
-{#if allowScan}
+{#if allowScan && !reviewingCategories}
   <section class="card mb-8 space-y-4">
     <h2 class="h-eyebrow">Scanner une recette papier</h2>
     <p class="text-sm text-sepia">Photographie une recette ou importe une image. Elle sera envoyée à Mistral pour extraire le texte, puis tu pourras le relire avant d’enregistrer.</p>
@@ -245,6 +295,7 @@
 {/if}
 
 <form bind:this={formElement} method="POST" enctype="multipart/form-data" class="space-y-10" onsubmit={onSubmit}>
+  <div class="space-y-10" hidden={reviewingCategories}>
   <!-- Identité -->
   <section class="card">
     <div class="h-eyebrow mb-5">— Identité de la recette</div>
@@ -326,10 +377,10 @@
             <input class="input font-mono text-center" name="ing_quantity" type="number" step="0.01" min="0" placeholder="Qté" bind:value={item.quantity} />
             <Combobox name="ing_unit" options={UNITS} strict placeholder="Unité" inputClass="input font-mono" bind:value={item.unit} />
           </div>
-          <div class="grid sm:grid-cols-3 gap-2 mb-2">
+          <div class="grid sm:grid-cols-2 gap-2 mb-2">
             <input class="input" name="ing_brand" placeholder="Marque (ex. Mutti)" bind:value={item.brand} />
             <input class="input font-mono text-sm" name="ing_product_reference" placeholder="Référence produit" bind:value={item.productReference} />
-            <Combobox name="ing_category" options={CATEGORIES} strict placeholder="Rayon (ex. Épicerie salée)" bind:value={item.category} />
+            <input type="hidden" name="ing_category" value={item.category} />
           </div>
           <div class="flex items-start gap-2">
             <input class="input flex-1 italic" name="ing_notes" placeholder="Notes (optionnel)" bind:value={item.notes} />
@@ -355,10 +406,34 @@
     >{recipe.instructions ?? ''}</textarea>
   </section>
 
+  </div>
+  {#if reviewingCategories}
+    <section class="card space-y-5" bind:this={categorySection}>
+      <h2 class="h-eyebrow">Vérifier les rayons</h2>
+      <p class="text-sm text-sepia">Vérifie le rayon de chaque ingrédient avant d’enregistrer. Les rayons validés sont mémorisés dans le catalogue commun pour les prochaines recettes.</p>
+      <div aria-live="polite">
+        {#if suggestingCategories}<p class="text-mare">Recherche des rayons…</p>{/if}
+        {#if categoryError}<p role="alert" class="text-terra">{categoryError}</p>{/if}
+      </div>
+      {#each items as item, idx}
+        {#if item.name.trim()}
+          <div class="grid sm:grid-cols-2 gap-2 items-center">
+            <label class="label" for={`category-${idx}`}>{item.name}</label>
+            <select id={`category-${idx}`} class="input" value={item.category} disabled={suggestingCategories} onchange={(e) => chooseCategory(item, e.currentTarget.value)}>
+              <option value="">À choisir ({byKey.get(normalizeName(item.name))?.category || 'Autres'} si laissé vide)</option>
+              {#each CATEGORIES as category}<option value={category}>{category}</option>{/each}
+            </select>
+          </div>
+        {/if}
+      {/each}
+    </section>
+  {/if}
+
   <div class="flex flex-wrap gap-3 justify-end">
+    {#if reviewingCategories}<button type="button" class="btn-secondary" disabled={suggestingCategories} onclick={() => reviewingCategories = false}>Retour à la recette</button>{/if}
     <a href={cancelHref} class="btn-secondary">Annuler</a>
-    <button type="submit" class="btn-primary btn-lg" disabled={compressing}>
-      {compressing ? 'Optimisation…' : submitLabel}
+    <button type="submit" class="btn-primary btn-lg" disabled={compressing || scanning || suggestingCategories}>
+      {compressing ? 'Optimisation…' : reviewingCategories ? submitLabel : 'Continuer : vérifier les rayons'}
     </button>
   </div>
 </form>

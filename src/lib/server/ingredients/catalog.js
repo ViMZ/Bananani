@@ -2,6 +2,7 @@ import { db } from '../db/index.js';
 import { ingredientCatalog } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { normalizeName } from '../../ingredients/normalize.js';
+import { CATEGORIES } from '../../ingredients/categories.js';
 
 /**
  * Catalogue d'ingrédients canoniques.
@@ -31,8 +32,8 @@ export async function listCatalog() {
 
 /**
  * Résout un nom d'ingrédient vers son id canonique, en créant l'entrée si besoin.
- * Unité par défaut et catégorie sont mémorisées à la création ; si l'entrée existe
- * mais qu'un de ces champs manque, la première valeur non vide rencontrée l'enrichit.
+ * L'unité complète le catalogue si elle manque. Le rayon validé par l'utilisateur
+ * corrige le rayon du catalogue commun, y compris lorsqu'il était déjà renseigné.
  * @param {string} name
  * @param {string} [unit]      unité saisie pour cet ingrédient
  * @param {string} [category]  rayon / catégorie de l'ingrédient
@@ -46,7 +47,7 @@ export async function resolveOrCreate(name, unit = '', category = '') {
   if (!key) return null;
 
   const cleanUnit = String(unit ?? '').trim();
-  const cleanCategory = String(category ?? '').trim();
+  const cleanCategory = CATEGORIES.includes(String(category ?? '').trim()) ? String(category).trim() : '';
 
   const existing = await db
     .select({
@@ -58,10 +59,10 @@ export async function resolveOrCreate(name, unit = '', category = '') {
     .where(eq(ingredientCatalog.normalizedKey, key))
     .limit(1);
   if (existing.length > 0) {
-    // Enrichit les champs encore vides.
+    // Conserve l'unité existante et mémorise le rayon explicitement validé.
     const patch = {};
     if (cleanUnit && !existing[0].defaultUnit) patch.defaultUnit = cleanUnit;
-    if (cleanCategory && !existing[0].category) patch.category = cleanCategory;
+    if (cleanCategory && cleanCategory !== existing[0].category) patch.category = cleanCategory;
     if (Object.keys(patch).length > 0) {
       await db.update(ingredientCatalog).set(patch).where(eq(ingredientCatalog.id, existing[0].id));
     }
