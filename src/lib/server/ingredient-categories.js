@@ -1,4 +1,4 @@
-import { CATEGORIES } from '../ingredients/categories.js';
+import { CATEGORIES, cleanCategory } from '../ingredients/categories.js';
 import { normalizeName } from '../ingredients/normalize.js';
 
 export function prepareCategories(names, catalog) {
@@ -10,7 +10,7 @@ export function prepareCategories(names, catalog) {
   for (const name of names) {
     const key = normalizeName(name);
     if (!key) throw new Error('Un nom d’ingrédient est invalide.');
-    if (!unique.has(key)) unique.set(key, { key, name: name.trim(), category: CATEGORIES.includes(known.get(key)) ? known.get(key) : '' });
+    if (!unique.has(key)) unique.set(key, { key, name: name.trim(), category: cleanCategory(known.get(key)) });
   }
   return [...unique.values()];
 }

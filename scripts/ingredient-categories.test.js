@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { prepareCategories, suggestCategories } from '../src/lib/server/ingredient-categories.js';
 
-test('deduplicates names and reuses only valid catalogue categories', () => {
+test('deduplicates names and reuses custom catalogue categories', () => {
   const result = prepareCategories(['Sel', 'sel', 'farine'], [{ normalizedKey: 'sel', category: 'Épices & condiments' }, { normalizedKey: 'farine', category: 'Inventé' }]);
   assert.equal(result.length, 2);
   assert.equal(result[0].category, 'Épices & condiments');
-  assert.equal(result[1].category, '');
+  assert.equal(result[1].category, 'Inventé');
 });
 test('rejects oversized and malformed input', () => {
   for (const names of [null, [null], [''], ['x'.repeat(201)], Array(101).fill('sel')]) assert.throws(() => prepareCategories(names, []));

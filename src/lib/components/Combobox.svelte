@@ -39,7 +39,7 @@
     value = opt;
     open = false;
     activeIndex = -1;
-    onselect();
+    onselect(opt);
   }
 
   function onKeydown(e) {
@@ -91,7 +91,7 @@
     const match = options.find((o) => norm(o).trim() === q);
     if (value !== (match ?? '')) {
       value = match ?? '';
-      onselect();
+      onselect(value);
     }
   }
 </script>
@@ -112,7 +112,7 @@
     onfocus={onFocus}
     onclick={() => { if (!open) filtering = false; open = true; }}
     oninput={() => { open = true; filtering = true; activeIndex = -1; }}
-    onchange={() => onselect()}
+    onchange={() => onselect(value)}
     onblur={onBlur}
     onkeydown={onKeydown}
   />

@@ -2,7 +2,7 @@ import { db } from '../db/index.js';
 import { ingredientCatalog } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { normalizeName } from '../../ingredients/normalize.js';
-import { CATEGORIES } from '../../ingredients/categories.js';
+import { cleanCategory } from '../../ingredients/categories.js';
 
 /**
  * Catalogue d'ingrédients canoniques.
@@ -47,7 +47,7 @@ export async function resolveOrCreate(name, unit = '', category = '') {
   if (!key) return null;
 
   const cleanUnit = String(unit ?? '').trim();
-  const cleanCategory = CATEGORIES.includes(String(category ?? '').trim()) ? String(category).trim() : '';
+  const categoryValue = cleanCategory(category);
 
   const existing = await db
     .select({
@@ -62,7 +62,7 @@ export async function resolveOrCreate(name, unit = '', category = '') {
     // Conserve l'unité existante et mémorise le rayon explicitement validé.
     const patch = {};
     if (cleanUnit && !existing[0].defaultUnit) patch.defaultUnit = cleanUnit;
-    if (cleanCategory && cleanCategory !== existing[0].category) patch.category = cleanCategory;
+    if (categoryValue && categoryValue !== existing[0].category) patch.category = categoryValue;
     if (Object.keys(patch).length > 0) {
       await db.update(ingredientCatalog).set(patch).where(eq(ingredientCatalog.id, existing[0].id));
     }
@@ -71,7 +71,7 @@ export async function resolveOrCreate(name, unit = '', category = '') {
 
   const [created] = await db
     .insert(ingredientCatalog)
-    .values({ name: clean, normalizedKey: key, defaultUnit: cleanUnit, category: cleanCategory })
+    .values({ name: clean, normalizedKey: key, defaultUnit: cleanUnit, category: categoryValue })
     .onConflictDoNothing({ target: ingredientCatalog.normalizedKey })
     .returning({ id: ingredientCatalog.id });
   if (created) return created.id;

@@ -30,6 +30,8 @@ npm run preview      # preview du build
 ### Validation des rayons
 
 La création et la modification d’une recette passent par « Vérifier les rayons ».
+Il est possible de sélectionner un rayon ou d’en saisir un nouveau (80 caractères).
+Les rayons personnalisés enregistrés sont proposés dans les recettes suivantes.
 Les rayons connus du catalogue sont réutilisés. Un seul appel à
 `ministral-3b-2512` propose les rayons manquants, parmi la liste autorisée.
 Les noms des ingrédients inconnus sont transmis à Mistral avec la même clé

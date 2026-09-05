@@ -1,7 +1,7 @@
 <script>
   import { tick } from 'svelte';
   import { normalizeName } from '$lib/ingredients/normalize';
-  import { CATEGORIES } from '$lib/ingredients/categories';
+  import { cleanCategory, categoryOptions } from '$lib/ingredients/categories';
   import { UNITS } from '$lib/ingredients/units';
   import Combobox from '$lib/components/Combobox.svelte';
 
@@ -48,7 +48,7 @@
       const suggestions = new Map((result.suggestions || []).map(i => [i.key, i.category]));
       for (const item of missing) {
         const category = suggestions.get(normalizeName(item.name));
-        if (!item.category && CATEGORIES.includes(category)) item.category = category;
+        if (!item.category && cleanCategory(category)) item.category = cleanCategory(category);
       }
       categoryError = result.warning || '';
     } catch (err) {
@@ -58,8 +58,9 @@
   }
 
   function chooseCategory(item, category) {
+    const clean = cleanCategory(category);
     for (const other of items) {
-      if (normalizeName(other.name) === normalizeName(item.name)) other.category = category;
+      if (normalizeName(other.name) === normalizeName(item.name)) other.category = clean;
     }
   }
 
@@ -122,6 +123,7 @@
         }))
       : [blank()]
   );
+  let availableCategories = $derived(categoryOptions([...catalog.map(i => i.category), ...items.map(i => i.category)]));
 
   function addIngredient() {
     items = [blank(), ...items];
@@ -411,6 +413,7 @@
     <section class="card space-y-5" bind:this={categorySection}>
       <h2 class="h-eyebrow">Vérifier les rayons</h2>
       <p class="text-sm text-sepia">Vérifie le rayon de chaque ingrédient avant d’enregistrer. Les rayons validés sont mémorisés dans le catalogue commun pour les prochaines recettes.</p>
+      <p class="text-sm text-sepia">Choisis un rayon existant ou saisis un nouveau nom (80 caractères maximum).</p>
       <div aria-live="polite">
         {#if suggestingCategories}<p class="text-mare">Recherche des rayons…</p>{/if}
         {#if categoryError}<p role="alert" class="text-terra">{categoryError}</p>{/if}
@@ -419,7 +422,7 @@
         {#if item.name.trim()}
           <div class="grid sm:grid-cols-2 gap-2 items-center">
             <label class="label" for={`category-${idx}`}>{item.name}</label>
-            <Combobox id={`category-${idx}`} options={CATEGORIES} strict showAllOnFocus placeholder="À choisir" disabled={suggestingCategories} bind:value={item.category} onselect={() => chooseCategory(item, item.category)} />
+            <Combobox id={`category-${idx}`} options={availableCategories} showAllOnFocus placeholder="Choisir ou créer un rayon" disabled={suggestingCategories} bind:value={item.category} onselect={(category) => chooseCategory(item, category)} />
           </div>
         {/if}
       {/each}
