@@ -101,19 +101,41 @@ formulaire et le relire avant l’enregistrement. Les images sont transmises à
 Mistral et ne sont pas conservées par Bananani pour le scan.
 
 Les fiches personnelles, manuscrites et les pages de livre sont acceptées ; un titre
-et des ingrédients suffisent même sans quantités, portions ni étapes. Les données
-absentes restent vides et sont signalées pour être complétées. Photographier la
+et des ingrédients suffisent même sans quantités, portions ni étapes. Photographier la
 fiche de près, à plat et sans reflet. L’écran « Scanner » sert à retrouver une
 recette existante via son code Bananani ; son lien « Importer une recette papier »
 ouvre la lecture OCR pour les documents sans code.
 
+Après l’OCR, une relecture par `mistral-small-latest` connaît le schéma de Bananani
+et propose une recette structurée : nettoyage du bruit OCR et des doublons,
+correction des noms, portions et quantités manquantes, étapes de préparation,
+description et rayons. Les variantes et les contraintes de la fiche sont conservées ;
+les marques et auteurs ne doivent pas être inventés. Les champs ajustés, ajouts
+et retraits sont signalés dans l’aperçu, avec les explications du modèle. Les
+estimations restent à vérifier. On peut consulter la lecture OCR d’origine et
+choisir de l’utiliser seule, puis modifier le formulaire avant l’enregistrement.
+Les suggestions n’enregistrent aucune recette ni aucun ingrédient en base.
+
+Le second appel reçoit uniquement le texte OCR (30 000 caractères maximum) et
+les champs extraits, avec les unités et rayons autorisés. Sa réponse structurée
+est validée côté serveur, y compris les liens avec les lignes d’origine. Si cette
+relecture sépare des ingrédients au choix (« tomates ou sauce tomate »), ils sont
+regroupés pour ne compter qu’une alternative dans les courses. Si cette
+relecture échoue, la lecture OCR reste utilisable avec un avertissement. Une
+annotation OCR manquante peut être récupérée à partir du texte brut par la relecture.
+
 Configurer `MISTRAL_API_KEY` uniquement côté serveur : variable d’environnement
 en local, secret Fly.io en production (`fly secrets import` via l’entrée standard).
 Ne jamais placer la clé dans le dépôt ou une variable publique. L’extraction
-utilise `mistral-ocr-latest` avec annotations structurées. Limite : 20 analyses par
+utilise `mistral-ocr-latest` avec annotations structurées, puis une requête de chat
+à `mistral-small-latest` pour la relecture. Même clé pour les deux appels.
+Limite : 20 analyses par
 utilisateur et par heure, un appel simultané ; compteur en mémoire réinitialisé
-au redémarrage. Délai maximal : 90 secondes.
-Vérifications : `node --test scripts/recipe-ocr.test.js` et `npm run build`.
+au redémarrage. Délais maximaux : 90 secondes pour l’OCR et 45 secondes pour la
+relecture, sans nouvelle tentative automatique.
+Vérifications : `npm test`, `npm run build` et `npm run test:integration`.
+Les tests HTTP simulent Mistral dans leur processus isolé et vérifient également
+la chaîne complète et son repli en cas de panne de la relecture.
 
 L'app tourne sur **https://bananani.fly.dev** (région `cdg`). Config dans
 [`fly.toml`](./fly.toml) + [`Dockerfile`](./Dockerfile).

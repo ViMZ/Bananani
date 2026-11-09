@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
-import { extractRecipe } from '$lib/server/recipe-ocr.js';
+import { analyzeRecipe } from '$lib/server/recipe-review.js';
 
 const attempts = new Map();
 export async function POST({ request, locals, url }) {
@@ -25,7 +25,7 @@ export async function POST({ request, locals, url }) {
       : bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP' ? 'image/webp' : null;
     if (!mime) return reply('Format non pris en charge. Choisis une image JPEG, PNG ou WebP.', 400);
     state.count++;
-    const result = await extractRecipe(bytes, mime, env.MISTRAL_API_KEY);
+    const result = await analyzeRecipe(bytes, mime, env.MISTRAL_API_KEY);
     return json(result, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     const message = err?.name === 'TimeoutError' ? 'Le scan prend trop de temps. Réessaie avec une image plus petite.'

@@ -40,7 +40,8 @@ export function validateRecipe(value) {
   return result;
 }
 
-export async function extractRecipe(bytes, mime, key, fetcher = fetch) {
+/** Lecture du document, conservée séparément de toute interprétation culinaire. */
+export async function readRecipeDocument(bytes, mime, key, fetcher = fetch) {
   const response = await fetcher('https://api.mistral.ai/v1/ocr', {
     method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     signal: AbortSignal.timeout(90000),
@@ -58,8 +59,16 @@ export async function extractRecipe(bytes, mime, key, fetcher = fetch) {
     throw new Error('Le service de scan est indisponible. Réessaie plus tard.');
   }
   const result = await response.json();
+  const text = (Array.isArray(result.pages) ? result.pages : [])
+    .map(page => typeof page?.markdown === 'string' ? page.markdown : '').join('\n\n').slice(0, 30000);
   let annotation;
   try { annotation = typeof result.document_annotation === 'string' ? JSON.parse(result.document_annotation) : result.document_annotation; }
-  catch { throw new Error('Le scan a renvoyé un résultat illisible. Réessaie.'); }
-  return validateRecipe(annotation);
+  catch { annotation = null; }
+  if (!annotation && !text) throw new Error('Le scan a renvoyé un résultat illisible. Réessaie.');
+  return { annotation, text };
+}
+
+export async function extractRecipe(bytes, mime, key, fetcher = fetch) {
+  const document = await readRecipeDocument(bytes, mime, key, fetcher);
+  return validateRecipe(document.annotation);
 }

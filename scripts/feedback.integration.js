@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
+import { pathToFileURL } from 'node:url';
 
 test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 60000 }, async (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'bananani-http-'));
@@ -28,7 +29,7 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
     const port = probe.address().port;
     await new Promise(resolve => probe.close(resolve));
     const origin = `http://127.0.0.1:${port}`;
-    server = spawn(process.execPath, ['build/index.js'], { env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), ORIGIN: origin, MISTRAL_API_KEY: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    server = spawn(process.execPath, ['--import', pathToFileURL(resolve('scripts/fixtures/mistral-preload.js')).href, 'build/index.js'], { env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), ORIGIN: origin, MISTRAL_API_KEY: 'http-test-only' }, stdio: ['ignore', 'pipe', 'pipe'] });
     server.stdout.on('data', data => { logs += data; });
     server.stderr.on('data', data => { logs += data; });
     let ready = false;
@@ -123,7 +124,29 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.match(html, /Choisir dans la galerie/);
       assert.match(html, /Rechercher une image/);
       assert.match(html, /fiche personnelle/);
-      assert.equal((await post('/recipes/ocr', {})).status, 503);
+      assert.equal((await post('/recipes/ocr', {})).status, 400);
+    });
+
+    await t.test('OCR endpoint returns reviewed suggestions and a usable original when review fails', async () => {
+      const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6n0UAAAAASUVORK5CYII=', 'base64');
+      for (const marker of ['', 'review-unavailable']) {
+        const data = new FormData();
+        data.set('image', new File([image, marker], 'recipe.png', { type: 'image/png' }));
+        const response = await fetch(`${origin}/recipes/ocr`, { method: 'POST', headers: { Cookie: cookie, Origin: origin }, body: data });
+        assert.equal(response.status, 200);
+        const result = await response.json();
+        assert.equal(result.review.status, marker ? 'unavailable' : 'complete');
+        assert.equal(result.original.ingredients.length, 3);
+        if (marker) {
+          assert.equal(result.ingredients.length, 3);
+          assert.match(result.warnings[0], /OCR reste utilisable/);
+        } else {
+          assert.equal(result.ingredients.length, 2);
+          assert.equal(result.recipe.servings, 4);
+          assert.equal(result.ingredients[0].quantity, 320);
+          assert.match(result.review.changes.join(' '), /Retrait proposé/);
+        }
+      }
     });
 
     await t.test('searches and imports a real Commons photo with attribution', { skip: process.env.LIVE_COMMONS !== '1' }, async () => {
