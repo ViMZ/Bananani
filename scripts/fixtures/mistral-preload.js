@@ -6,13 +6,16 @@ globalThis.fetch = async (url, options) => {
   const request = JSON.parse(options.body);
   if (target.endsWith('/ocr')) {
     const bytes = Buffer.from(request.document.image_url.split(',')[1], 'base64');
-    const title = bytes.includes(Buffer.from('review-unavailable')) ? 'Relecture indisponible' : 'Pâtes à la tomate';
+    const slow = bytes.includes(Buffer.from('slow-import'));
+    if (slow) await new Promise(resolve => setTimeout(resolve, 80));
+    const title = bytes.includes(Buffer.from('review-unavailable')) ? 'Relecture indisponible' : slow ? 'Import lent' : 'Pâtes à la tomate';
     return Response.json({ document_annotation: { isRecipe: true, title, description: '', owner: '', servings: null, instructions: '',
       ingredients: [{ name: 'Pâtes', quantity: null, unit: '', notes: '' }, { name: 'Tomates', quantity: null, unit: '', notes: '' }, { name: 'Imprimer ce document', quantity: null, unit: '', notes: '' }] },
     pages: [{ markdown: `${title}\nPâtes\nTomates\nImprimer ce document` }] });
   }
   if (target.endsWith('/chat/completions') && request.model === 'mistral-small-latest') {
     const source = JSON.parse(request.messages[1].content);
+    if (source.recipe.title === 'Import lent') await new Promise(resolve => setTimeout(resolve, 100));
     if (source.recipe.title === 'Relecture indisponible') return new Response('upstream-private-detail', { status: 503 });
     return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({
       isRecipe: true, title: 'Pâtes à la tomate', description: 'Sauce tomate maison.', owner: '', servings: 4,

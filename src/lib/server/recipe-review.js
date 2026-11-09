@@ -163,11 +163,13 @@ export async function reviewRecipe(source, key, fetcher = fetch) {
 }
 
 /** Une lecture OCR puis une relecture culinaire ; repli utilisable si seul le LLM échoue. */
-export async function analyzeRecipe(bytes, mime, key, fetcher = fetch) {
+export async function analyzeRecipe(bytes, mime, key, fetcher = fetch, onPhase = () => {}) {
+  onPhase('ocr');
   const document = await readRecipeDocument(bytes, mime, key, fetcher);
   let original = null;
   try { original = validateRecipe(document.annotation); } catch { /* La relecture peut récupérer le texte OCR. */ }
   const source = sourceData(document, original);
+  onPhase('review');
   try {
     return { ...await reviewRecipe(source, key, fetcher), original, ocrText: document.text };
   } catch {

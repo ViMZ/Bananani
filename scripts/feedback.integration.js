@@ -8,6 +8,7 @@ import { join, resolve, sep } from 'node:path';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { pathToFileURL } from 'node:url';
+import { randomUUID } from 'node:crypto';
 
 test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 60000 }, async (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'bananani-http-'));
@@ -147,6 +148,39 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
           assert.match(result.review.changes.join(' '), /Retrait proposé/);
         }
       }
+    });
+
+    await t.test('async OCR imports are resumable, isolated and do not run duplicate analyses', async () => {
+      const id = randomUUID();
+      const statusPath = `/recipes/ocr?job=${id}`;
+      assert.equal((await get(statusPath)).status, 404);
+      const data = new FormData();
+      data.set('image', new File([Buffer.from([137,80,78,71,13,10,26,10]), 'slow-import'], 'recipe.png', {type: 'image/png'}));
+      const start = await fetch(`${origin}/recipes/ocr?mode=async`, {method: 'POST', headers: {Cookie: cookie, Origin: origin, 'X-Import-Id': id}, body: data});
+      assert.equal(start.status, 202);
+      assert.equal((await start.json()).status, 'processing');
+      assert.equal((await get(statusPath, otherCookie)).status, 404);
+      const repeat = await fetch(`${origin}/recipes/ocr?mode=async`, {method: 'POST', headers: {Cookie: cookie, Origin: origin, 'X-Import-Id': id}});
+      assert.ok([200, 202].includes(repeat.status));
+      assert.equal((await repeat.json()).error, undefined);
+      const busy = await fetch(`${origin}/recipes/ocr?mode=async`, {method: 'POST', headers: {Cookie: otherCookie, Origin: origin, 'X-Import-Id': randomUUID()}, body: data});
+      assert.equal(busy.status, 429);
+      let completed;
+      for (let i = 0; i < 100; i++) {
+        const response = await get(statusPath);
+        assert.match(response.headers.get('cache-control'), /no-store/);
+        const result = await response.json();
+        if (result.status === 'complete') { completed = result; break; }
+        assert.equal(response.status, 202);
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      assert.equal(completed.result.review.status, 'complete');
+      assert.equal(completed.result.ingredients[0].quantity, 320);
+      const cached = await fetch(`${origin}/recipes/ocr?mode=async`, {method: 'POST', headers: {Cookie: cookie, Origin: origin, 'X-Import-Id': id}});
+      assert.equal(cached.status, 200);
+      assert.deepEqual(await cached.json(), completed);
+      const bad = await fetch(`${origin}/recipes/ocr?mode=async`, {method: 'POST', headers: {Cookie: cookie, Origin: origin, 'X-Import-Id': 'invalid'}});
+      assert.equal(bad.status, 400);
     });
 
     await t.test('searches and imports a real Commons photo with attribution', { skip: process.env.LIVE_COMMONS !== '1' }, async () => {

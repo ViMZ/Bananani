@@ -5,6 +5,7 @@
   import { UNITS, formatUnit } from '$lib/ingredients/units';
   import Combobox from '$lib/components/Combobox.svelte';
   import PhotoCredit from '$lib/components/PhotoCredit.svelte';
+  import { importRecipe } from '$lib/recipes/import.js';
 
   let {
     recipe = { title: '', description: '', owner: '', servings: 2, instructions: '', photoPath: null },
@@ -26,6 +27,8 @@
   let scanWarnings = $state([]);
   let scanUseOriginal = $state(false);
   let scanSuggestedFields = $state([]);
+  let scanRequestId = '';
+  let scanPhase = $state('upload');
   let scanPreview = $derived(scanUseOriginal && scanResult?.original ? scanResult.original : scanResult);
   const suggestionLabels = { title: 'titre', description: 'description', owner: 'auteur', servings: 'personnes', instructions: 'étapes',
     name: 'nom', quantity: 'quantité', unit: 'unité', notes: 'notes', brand: 'marque', productReference: 'référence', category: 'rayon' };
@@ -78,6 +81,7 @@
     scanResult = null;
     scanInfo = '';
     scanUseOriginal = false;
+    scanPhase = 'upload';
     try {
       scanPreparing = true;
       // Plus de résolution que pour une photo de plat : préserver les petits caractères.
@@ -85,21 +89,30 @@
       scanPreparing = false;
       if (image.size > 10 * 1024 * 1024) throw new Error('Cette photo reste trop volumineuse après optimisation. Essaie une photo plus rapprochée de la recette ou une image JPEG.');
       if (image !== scanFile) scanInfo = `Photo optimisée : ${(scanFile.size / 1024 / 1024).toFixed(1)} Mo → ${(image.size / 1024 / 1024).toFixed(1)} Mo`;
-      const body = new FormData();
-      body.append('image', image);
-      const response = await fetch('/recipes/ocr', { method: 'POST', body });
-      if (response.redirected) throw new Error('Ta session a expiré. Reconnecte-toi pour scanner.');
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Le scan a échoué.');
+      const result = await importRecipe(image, { id: scanRequestId, onPhase: phase => { scanPhase = phase; } });
       // Les rayons déjà choisis dans le catalogue priment sur une nouvelle suggestion.
       for (const ingredient of result.ingredients || []) {
         const known = byKey.get(normalizeName(ingredient.name));
         if (known?.category) ingredient.category = known.category;
       }
       scanResult = result;
+      applyScan();
     } catch (err) {
-      scanError = err instanceof Error ? err.message : 'Le scan a échoué. Réessaie.';
+      if (err?.restartImport) scanRequestId = crypto.randomUUID();
+      scanError = err?.name === 'TypeError' ? 'Impossible de lire ou d’envoyer cette photo. Réessaie ; ta saisie est conservée.'
+        : err instanceof Error ? err.message : 'L’import a échoué. Réessaie ; ta saisie est conservée.';
     } finally { scanning = false; scanPreparing = false; }
+  }
+
+  async function onScanChange(event) {
+    const file = event.currentTarget.files?.[0];
+    if (!file || scanning) return;
+    scanFile = file;
+    scanRequestId = crypto.randomUUID();
+    scanApplied = false;
+    scanWarnings = [];
+    scanSuggestedFields = [];
+    await scan();
   }
 
   function applyScan() {
@@ -109,7 +122,6 @@
     items = scanPreview.ingredients.map((i) => ({ ...blank(), ...i }));
     scanWarnings = scanPreview.warnings || [];
     scanSuggestedFields = scanUseOriginal ? [] : scanResult.review?.suggestedFields || [];
-    scanResult = null;
     scanApplied = true;
   }
 
@@ -325,25 +337,25 @@
   <section id="import-scan" class="card mb-8 space-y-4">
     <h2 class="h-eyebrow">Scanner une recette papier</h2>
     <p class="text-sm text-sepia">Photographie une fiche personnelle, une page de livre ou une recette manuscrite, ou importe une image. Aucun code Bananani n’est nécessaire. Un titre et une liste d’ingrédients suffisent, même sans quantités ni étapes.</p>
-    <p class="text-sm text-sepia">L’image sera envoyée à Mistral pour lire le texte, puis un modèle vérifiera la cohérence et proposera les informations manquantes : portions, quantités, étapes et rayons. Tu pourras comparer avec la lecture OCR et tout corriger avant d’enregistrer.</p>
+    <p class="text-sm text-sepia">Choisis une image ou prends une photo : le texte sera lu par Mistral, puis la recette sera vérifiée et préremplie automatiquement. Tu pourras corriger les quantités, les portions et les étapes avant d’enregistrer.</p>
     <p class="text-xs text-sepia">Cadre la fiche de près, à plat, sans reflet et avec le texte net. Les estimations et ajustements seront signalés pour être vérifiés.</p>
     <div class="flex flex-wrap gap-3">
       <label class="btn-secondary cursor-pointer">
         Prendre une photo
-        <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={scanning} onchange={(e) => { scanFile = e.currentTarget.files?.[0] ?? null; scanResult = null; scanError = ''; }} />
+        <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={scanning} onchange={onScanChange} />
       </label>
       <label class="btn-secondary cursor-pointer">
         Choisir une image
-        <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={scanning} onchange={(e) => { scanFile = e.currentTarget.files?.[0] ?? null; scanResult = null; scanError = ''; }} />
+        <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={scanning} onchange={onScanChange} />
       </label>
     </div>
     <p class="text-xs text-sepia">Une page · JPEG, PNG ou WebP · photos automatiquement optimisées · photo nette et bien éclairée</p>
     {#if scanFile}<p class="text-sm break-all">{scanFile.name}</p>{/if}
-    <button type="button" class="btn-primary" disabled={!scanFile || scanning} onclick={scan}>{scanPreparing ? 'Optimisation de la photo…' : scanning ? 'Lecture et vérification de la recette…' : 'Analyser la recette'}</button>
-    <div aria-live="polite">
-      {#if scanning}<p class="text-sm text-sepia">Lecture OCR, puis vérification et suggestions culinaires. L’analyse peut prendre jusqu’à deux minutes.</p>{/if}
+    <div aria-live="polite" aria-busy={scanning}>
+      {#if scanning}<p class="text-sm text-mare">{scanPreparing ? 'Préparation de la photo…' : scanPhase === 'upload' ? 'Envoi de la photo…' : scanPhase === 'review' ? 'Texte lu. Vérification et préremplissage de la recette…' : scanPhase === 'reconnecting' ? 'Connexion interrompue. Reprise de l’import…' : 'Lecture du texte de la recette…'}</p>{/if}
       {#if scanInfo}<p class="text-sm text-mare">{scanInfo}</p>{/if}
       {#if scanError}<p role="alert" class="text-terra mt-3">{scanError}</p>{/if}
+      {#if scanError && scanFile && !scanning}<button type="button" class="btn-secondary mt-3" onclick={scan}>Réessayer l’import</button>{/if}
       {#if scanApplied}<p class="text-sm text-mare mt-3">Recette préremplie. Vérifie les quantités, les unités et les portions, puis clique sur « Créer la recette ».</p>{/if}
       {#if scanApplied}{#each scanWarnings as warning}<p class="text-sm text-sepia mt-2">{warning}</p>{/each}{/if}
       {#if scanApplied && scanSuggestedFields.length}<p class="text-sm text-sepia mt-2">Champs complétés ou ajustés à relire : {scanSuggestedFields.map(f => suggestionLabels[f]).join(', ')}.</p>{/if}
@@ -354,26 +366,12 @@
           <p class="text-sm font-medium text-mare">Recette relue · suggestions à vérifier</p>
           <p class="text-sm text-sepia">Les champs marqués ont été complétés ou ajustés. Les quantités, portions et étapes proposées peuvent être des estimations.</p>
           {#if scanResult.original}
-            <label class="flex gap-2 items-start text-sm"><input type="checkbox" bind:checked={scanUseOriginal} class="mt-1 accent-mare" /> Utiliser seulement la lecture OCR, sans les ajustements ni les suggestions</label>
+            <label class="flex gap-2 items-start text-sm"><input type="checkbox" checked={scanUseOriginal} onchange={(event) => { scanUseOriginal = event.currentTarget.checked; applyScan(); }} class="mt-1 accent-mare" /> Remplacer les champs par la lecture OCR d’origine, sans les suggestions</label>
           {/if}
         {:else if scanResult.review?.status === 'unavailable'}
           <p class="text-sm font-medium text-terra">Lecture OCR seulement · suggestions indisponibles</p>
         {/if}
-        <h3 class="font-display text-2xl italic">{scanPreview.recipe.title || 'Titre à compléter'}</h3>
-        {#if scanPreview.recipe.description}<p class="text-sm text-sepia">{scanPreview.recipe.description}</p>{/if}
-        <p class="text-sm">{scanPreview.ingredients.length} ingrédients · Personnes : {scanPreview.recipe.servings || 'à compléter'}</p>
-        {#if !scanUseOriginal && scanResult.review?.suggestedFields.length}<p class="text-xs text-mare">Complété ou ajusté : {scanResult.review.suggestedFields.map(f => suggestionLabels[f]).join(', ')}.</p>{/if}
-        <ul class="text-sm space-y-1">
-          {#each scanPreview.ingredients as ingredient}
-            <li class="py-1">
-              {ingredient.quantity} {formatUnit(ingredient.unit, ingredient.quantity)} {ingredient.name}{ingredient.notes ? ` — ${ingredient.notes}` : ''}
-              {#if ingredient.brand || ingredient.productReference}<span class="block text-xs text-sepia">{[ingredient.brand, ingredient.productReference].filter(Boolean).join(' · ')}</span>{/if}
-              {#if ingredient.category}<span class="block text-xs text-sepia">Rayon : {ingredient.category}</span>{/if}
-              {#if ingredient.suggestedFields?.length}<span class="block text-xs text-mare">À vérifier : {ingredient.suggestedFields.map(f => suggestionLabels[f]).join(', ')}.</span>{/if}
-            </li>
-          {/each}
-        </ul>
-        <details><summary class="cursor-pointer text-sm">Voir les étapes{!scanUseOriginal && scanResult.review?.suggestedFields.includes('instructions') ? ' proposées ou ajustées' : ''}</summary><p class="whitespace-pre-wrap text-sm mt-2">{scanPreview.recipe.instructions || 'Étapes à compléter'}</p></details>
+        <p class="text-sm">{scanPreview.recipe.title || 'Titre à compléter'} · {scanPreview.ingredients.length} ingrédients importés dans le formulaire ci-dessous.</p>
         {#if scanResult.review?.status === 'complete'}
           <details>
             <summary class="cursor-pointer text-sm">Voir les ajustements et leurs explications</summary>
@@ -392,17 +390,13 @@
             {#if scanResult.ocrText}<pre class="whitespace-pre-wrap break-words text-xs mt-3 max-h-72 overflow-auto">{scanResult.ocrText}</pre>{/if}
           </details>
         {/if}
-        <p class="text-sm text-sepia">Les champs du formulaire ci-dessous seront remplacés. La photo du plat sera conservée.</p>
-        {#each scanPreview.warnings || [] as warning}<p class="text-sm text-sepia">{warning}</p>{/each}
-        <button type="button" class="btn-primary" onclick={applyScan}>{!scanUseOriginal && scanResult.review?.status === 'complete' ? 'Préremplir avec ces suggestions' : 'Utiliser la lecture OCR'}</button>
-        <button type="button" class="btn-secondary" onclick={() => scanResult = null}>Ignorer</button>
       </div>
     {/if}
   </section>
 {/if}
 
 <form bind:this={formElement} method="POST" enctype="multipart/form-data" class="space-y-10" onsubmit={onSubmit}>
-  <div class="space-y-10" hidden={reviewingCategories}>
+  <fieldset class="space-y-10 min-w-0" hidden={reviewingCategories} disabled={scanning} aria-label="Saisie de la recette">
   <!-- Identité -->
   <section class="card">
     <div class="h-eyebrow mb-5">— Identité de la recette</div>
@@ -563,7 +557,7 @@
     >{recipe.instructions ?? ''}</textarea>
   </section>
 
-  </div>
+  </fieldset>
   {#if reviewingCategories}
     <section class="card space-y-5" bind:this={categorySection}>
       <h2 class="h-eyebrow">Vérifier les rayons</h2>

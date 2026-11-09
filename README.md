@@ -94,10 +94,11 @@ Tests : `node --test scripts/ingredient-categories.test.js`.
 ### Importer une recette papier
 
 Dans « Nouvelle recette », prendre une photo ou choisir une image JPEG, PNG ou
-WebP (une page), puis lancer l’analyse. Les photos sont automatiquement réduites
+WebP (une page). L’OCR, la relecture et le préremplissage se lancent automatiquement,
+sans bouton d’analyse ni validation intermédiaire. Les photos sont automatiquement réduites
 à 3 000 pixels sur le grand côté et compressées en JPEG si cela les allège, avant
-de vérifier la limite d’envoi de 10 Mo. Appliquer le résultat au
-formulaire et le relire avant l’enregistrement. Les images sont transmises à
+de vérifier la limite d’envoi de 10 Mo. Relire le formulaire prérempli avant
+l’enregistrement. Les images sont transmises à
 Mistral et ne sont pas conservées par Bananani pour le scan.
 
 Les fiches personnelles, manuscrites et les pages de livre sont acceptées ; un titre
@@ -113,8 +114,20 @@ description et rayons. Les variantes et les contraintes de la fiche sont conserv
 les marques et auteurs ne doivent pas être inventés. Les champs ajustés, ajouts
 et retraits sont signalés dans l’aperçu, avec les explications du modèle. Les
 estimations restent à vérifier. On peut consulter la lecture OCR d’origine et
-choisir de l’utiliser seule, puis modifier le formulaire avant l’enregistrement.
+choisir de l’utiliser seule (cela remplace les champs du formulaire), puis modifier
+le formulaire avant l’enregistrement. Les rayons déjà connus du catalogue priment
+sur les nouvelles suggestions.
 Les suggestions n’enregistrent aucune recette ni aucun ingrédient en base.
+
+Le navigateur envoie la photo puis suit l’import par des requêtes courtes, avec
+les phases de lecture et de relecture affichées. Un identifiant d’import propre
+au compte permet de reprendre un résultat après une coupure sans relancer l’OCR.
+Les résultats sont conservés dix minutes en mémoire (40 maximum), jamais sur
+disque ; un redémarrage de la machine les efface. Un seul import asynchrone est
+traité à la fois pour limiter la mémoire sur l’unique machine. Si une connexion
+est interrompue, la photo et la saisie restent disponibles avec une relance.
+Le préremplissage bloque la saisie pendant son exécution pour ne pas écraser des
+modifications faites en parallèle. L’enregistrement final reste explicite.
 
 Le second appel reçoit uniquement le texte OCR (30 000 caractères maximum) et
 les champs extraits, avec les unités et rayons autorisés. Sa réponse structurée
