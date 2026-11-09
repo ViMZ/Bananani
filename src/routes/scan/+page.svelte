@@ -1,4 +1,5 @@
 <script>
+  import { formatUnit } from '$lib/ingredients/units';
   import { onDestroy } from 'svelte';
   import { deserialize } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
@@ -200,12 +201,17 @@
   <div class="h-eyebrow mb-2">Capture</div>
   <h1 class="h-display text-5xl md:text-6xl italic">Scanner</h1>
   <p class="text-sepia italic mt-2">
-    Pour voir la recette et ajouter les ingrédients à la liste de courses.
+    Scanne le code d’une fiche Bananani pour retrouver la recette et ajouter ses ingrédients aux courses.
   </p>
   <div class="flex justify-center mt-4">
     <Sprig width={120} />
   </div>
 </header>
+
+<aside class="card-flat mb-8 text-sm text-sepia space-y-3">
+  <p><strong class="text-umber">Une fiche personnelle, un livre ou une recette sans code ?</strong> Importe sa photo : la lecture du texte fonctionne aussi sans quantités ni étapes.</p>
+  <a class="btn-secondary" href="/recipes/new#import-scan">Importer une recette papier</a>
+</aside>
 
 <div class="grid lg:grid-cols-[3fr_2fr] gap-8">
   <!-- Viewport caméra -->
@@ -386,7 +392,7 @@
             </div>
             {#if i.quantity}
               <span class="font-display text-umber whitespace-nowrap">
-                {i.quantity}<span class="text-sepia text-xs font-sans">{i.unit}</span>
+                {i.quantity}<span class="text-sepia text-xs font-sans">{formatUnit(i.unit, i.quantity)}</span>
               </span>
             {/if}
           </li>

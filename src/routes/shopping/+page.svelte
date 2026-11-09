@@ -45,6 +45,11 @@
   </p>
 </header>
 
+<aside class="card-flat max-w-xl mx-auto mb-6 text-sm text-sepia space-y-2 no-print" aria-label="Comment utiliser la liste de courses">
+  <p><strong class="text-umber">Case vide : à acheter. Case cochée : déjà dans le panier ou acheté.</strong> Touche une case pour changer son état ; tu peux la décocher à tout moment.</p>
+  <p>Pour exclure un article dont tu n’as pas besoin, utilise la corbeille. « Retirer les articles achetés » supprime seulement les lignes cochées. La version imprimée contient uniquement ce qui reste à acheter.</p>
+</aside>
+
 <div class="flex justify-center mb-6 no-print">
   <div class="inline-flex rounded-full border border-umber/20 bg-panna p-1 text-sm">
     <button
@@ -63,7 +68,7 @@
   <a href="/shopping/print?view={viewMode}" class="btn-secondary">🍋 Imprimer la liste</a>
   {#if done > 0}
     <form method="POST" action="?/clearChecked" use:enhance>
-      <button class="btn-secondary">Retirer les cochés ({done})</button>
+      <button class="btn-secondary">Retirer les articles achetés ({done})</button>
     </form>
   {/if}
   {#if data.items.length > 0}
@@ -104,7 +109,8 @@
                    {group.checked
                      ? 'bg-oliva border-oliva shadow-soft'
                      : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
-            aria-label={group.checked ? 'Décocher' : 'Cocher'}
+            role="checkbox" aria-checked={group.checked}
+            aria-label={group.checked ? `Remettre ${group.label} à acheter` : `Marquer ${group.label} comme acheté`}
           >
             {#if group.checked}
               <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -141,7 +147,7 @@
         </div>
         <form method="POST" action="?/remove" use:enhance>
           <input type="hidden" name="ids" value={group.ids.join(',')} />
-          <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label="Supprimer">
+          <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label={`Exclure ${group.label} de la liste`}>
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
             </svg>
@@ -159,9 +165,9 @@
       <section>
         <div class="flex items-baseline gap-4 mb-4">
           <h2 class="h-display italic text-2xl text-mare">{group.title}</h2>
-          {#if group.instances > 1}
+          {#if group.totalServings || group.instances > 1}
             <span class="font-mono text-[10px] uppercase tracking-wider text-mare bg-mare-soft/30 rounded-full px-2 py-0.5">
-              {#if group.servings}{group.servings} pers × {group.instances}{:else}× {group.instances}{/if}
+              {#if group.totalServings}{group.totalServings} portions au total · {group.instances} repas{:else}× {group.instances}{/if}
             </span>
           {/if}
           <span class="flex-1 h-px bg-mare/30"></span>
@@ -180,7 +186,8 @@
                          {line.checked
                            ? 'bg-oliva border-oliva shadow-soft'
                            : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
-                  aria-label={line.checked ? 'Décocher' : 'Cocher'}
+                  role="checkbox" aria-checked={line.checked}
+                  aria-label={line.checked ? `Remettre ${line.name} à acheter` : `Marquer ${line.name} comme acheté`}
                 >
                   {#if line.checked}
                     <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -207,7 +214,7 @@
               </div>
               <form method="POST" action="?/remove" use:enhance>
                 <input type="hidden" name="ids" value={line.ids.join(',')} />
-                <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label="Supprimer">
+                <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label={`Exclure ${line.name} de la liste`}>
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                     <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
                   </svg>

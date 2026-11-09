@@ -91,7 +91,13 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
     }
 
     // Nombre d'ajouts = nombre de lots distincts (CURRENT_TIMESTAMP partagé par lot).
-    const addedAts = new Set(g.items.map((i) => i.addedAt));
+    const batches = new Map();
+    for (const i of g.items) {
+      batches.set(i.batchId || i.addedAt, i.servings ?? null);
+    }
+    const batchServings = [...batches.values()];
+    const totalServings = batchServings.every(s => Number(s) > 0)
+      ? batchServings.reduce((sum, s) => sum + Number(s), 0) : null;
 
     /** @type {Map<string, any>} */
     const byKey = new Map();
@@ -146,7 +152,8 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
       title: g.title,
       isRecipe: true,
       servings: g.servings,
-      instances: addedAts.size,
+      instances: batches.size,
+      totalServings,
       itemCount: g.items.length,
       lines
     };

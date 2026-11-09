@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { getRecipeByCode } from '$lib/server/recipes';
-import { recipeInList } from '$lib/server/shopping';
+import { recipeInList, shoppingRows } from '$lib/server/shopping';
 import { db } from '$lib/server/db';
 import { shoppingItems } from '$lib/server/db/schema';
 
@@ -46,19 +46,7 @@ export const actions = {
     }
 
     await db.insert(shoppingItems).values(
-      ingredients.map((i) => ({
-        userId,
-        recipeId: recipe.id,
-        recipeTitle: recipe.title,
-        canonicalId: i.canonicalId,
-        name: i.name,
-        brand: i.brand,
-        productReference: i.productReference,
-        quantity: i.quantity,
-        unit: i.unit,
-        notes: i.notes,
-        checked: false
-      }))
+      shoppingRows(userId, recipe, ingredients)
     );
 
     return { added: ingredients.length, recipeTitle: recipe.title, code: recipe.code };

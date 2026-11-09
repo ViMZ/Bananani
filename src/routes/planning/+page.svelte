@@ -20,6 +20,8 @@
   let copyBusy = $state(false);
   let copyMessage = $state('');
   let copyWeek = $state('');
+  let planError = $state('');
+  let portionBusy = $state(false);
 
   async function copyPreviousWeek() {
     if (copyBusy) return;
@@ -57,6 +59,7 @@
         placementId: p.id,
         recipeId: p.recipeId,
         title: p.title,
+        servings: p.servings,
         photoPath: p.photoPath
       });
     }
@@ -87,10 +90,24 @@
 
   // --- Persistance (fetch + invalidateAll, modèle /scan) ---
   async function post(action, fields) {
+    planError = '';
     const fd = new FormData();
     for (const [k, v] of Object.entries(fields)) fd.append(k, String(v));
-    await fetch(`?/${action}`, { method: 'POST', body: fd });
-    await invalidateAll();
+    try {
+      const res = await fetch(`?/${action}`, { method: 'POST', body: fd });
+      const result = deserialize(await res.text());
+      if (result.type !== 'success') throw new Error(result.data?.error || 'Impossible d’enregistrer le repas. Réessaie.');
+      await invalidateAll();
+    } catch (err) {
+      planError = err instanceof Error ? err.message : 'Impossible d’enregistrer le repas.';
+      await invalidateAll();
+    }
+  }
+
+  async function changePortions(item, value) {
+    portionBusy = true;
+    try { await post('portions', { id: item.placementId, servings: value }); }
+    finally { portionBusy = false; }
   }
 
   // --- Zones "créneau" (jour + midi/soir) ---
@@ -215,6 +232,8 @@
     <div class="h-eyebrow mb-1">Menu de la semaine</div>
     <h1 class="h-display text-4xl md:text-5xl italic">Settimana</h1>
   </header>
+  <p class="text-sm text-sepia mb-4">Choisis le nombre de personnes pour chaque repas. Les quantités de courses s’adaptent et s’additionnent pour une même recette.</p>
+  {#if planError}<p role="alert" class="text-terra mb-4">{planError}</p>{/if}
 
   <!-- Navigation de semaine -->
   <div class="flex items-center justify-between gap-3 mb-6">
@@ -284,6 +303,10 @@
                   <div class="relative" animate:flip={{ duration: FLIP }}>
                     <RecipeMiniCard recipe={item} />
                     {#if item.placementId}
+                      <label class="flex flex-wrap items-center gap-1 text-xs text-sepia mt-2" onpointerdown={(e) => e.stopPropagation()}>
+                        Personnes
+                        <input class="input w-16 p-1 text-center" aria-label={`Personnes pour ${item.title} — ${MEAL_LABEL[meal]} ${label.weekday}`} type="number" min="1" max="50" step="1" value={item.servings} disabled={portionBusy || genBusy} onchange={(e) => changePortions(item, e.currentTarget.value)} />
+                      </label>
                       <button
                         type="button"
                         class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-terra text-panna text-xs shadow-soft flex items-center justify-center"
@@ -310,7 +333,7 @@
     <button type="button" class="btn-secondary flex-1" onclick={openTrayForDrag}>
       + Recettes
     </button>
-    <button type="button" class="btn-primary flex-[2]" onclick={onGenerateClick} disabled={genBusy}>
+    <button type="button" class="btn-primary flex-[2]" onclick={onGenerateClick} disabled={genBusy || portionBusy}>
       {genBusy ? 'Génération…' : 'Générer la liste de courses'}
     </button>
   </div>

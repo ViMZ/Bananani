@@ -48,6 +48,22 @@ export const UNITS = [
   'zeste'
 ];
 
+const COUNT_UNITS = UNITS.filter((u) => !['g', 'kg', 'mg', 'ml', 'cl', 'l', 'c. à café', 'c. à soupe'].includes(u));
+const unitKey = (value) => String(value ?? '').toLowerCase().trim().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+/** Ramène aussi les formes plurielles à l'unité utilisée par les formulaires. */
+export function canonicalUnit(raw) {
+  const key = unitKey(raw);
+  const known = COUNT_UNITS.find((u) => unitKey(u) === key || unitKey(`${u}s`) === key);
+  return known || UNITS.find((u) => unitKey(u) === key) || ALIASES[key] || '';
+}
+
+/** Accord des unités dénombrables ; les symboles g, ml… restent invariables. */
+export function formatUnit(raw, quantity) {
+  const unit = canonicalUnit(raw) || String(raw ?? '').trim();
+  return COUNT_UNITS.includes(unit) && Number(quantity) > 1 ? `${unit}s` : unit;
+}
+
 /** Alias de saisie → unité canonique d'une famille. */
 const ALIASES = {
   gr: 'g',
@@ -70,7 +86,7 @@ const ALIASES = {
  * @returns {string}
  */
 function normalizeUnit(raw) {
-  const u = String(raw ?? '')
+  const u = String(canonicalUnit(raw) || raw || '')
     .toLowerCase()
     .trim()
     .normalize('NFD')
@@ -116,7 +132,7 @@ function formatNumber(n) {
  * @param {string} family       famille renvoyée par resolveUnit
  * @param {string} [displayUnit] unité d'origine à afficher pour les micro-familles
  *                               (préserve la casse/accents saisis, ex. « pièce »)
- * @returns {string}            ex. « 1,5 kg », « 200 g », « 3 pièce »
+ * @returns {string}            ex. « 1,5 kg », « 200 g », « 3 pièces »
  */
 export function formatQuantity(totalInBase, family, displayUnit) {
   const def = FAMILIES[family];
@@ -134,5 +150,5 @@ export function formatQuantity(totalInBase, family, displayUnit) {
 
   // Micro-famille : 'sans-unite' n'affiche pas de libellé d'unité.
   if (family === 'sans-unite') return formatNumber(totalInBase);
-  return `${formatNumber(totalInBase)} ${displayUnit || family}`;
+  return `${formatNumber(totalInBase)} ${formatUnit(displayUnit || family, totalInBase)}`;
 }

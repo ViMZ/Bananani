@@ -18,7 +18,7 @@ export async function load({ locals }) {
   const items = rows.map((r) => ({
     ...r.item,
     category: r.category ?? '',
-    servings: r.servings ?? null
+    servings: r.item.servings ?? r.servings ?? null
   }));
   return { items };
 }

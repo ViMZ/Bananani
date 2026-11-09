@@ -1,4 +1,6 @@
 <script>
+  import PhotoCredit from '$lib/components/PhotoCredit.svelte';
+  import { formatUnit } from '$lib/ingredients/units';
   import Sprig from '$lib/components/Sprig.svelte';
   import Ornament from '$lib/components/Ornament.svelte';
   import BackLink from '$lib/components/BackLink.svelte';
@@ -70,6 +72,7 @@
     {#if recipe.photoPath}
       <div class="bg-panna p-3 rounded-card shadow-soft-lg border border-umber/15">
         <img src={recipe.photoPath} alt={recipe.title} class="w-full aspect-square object-cover rounded" />
+        <PhotoCredit recipe={recipe} />
       </div>
     {:else}
       <div class="bg-sand p-3 rounded-card shadow-soft-lg border border-umber/15">
@@ -121,7 +124,7 @@
               </div>
               {#if i.quantity}
                 <span class="font-display text-lg text-umber whitespace-nowrap">
-                  {i.quantity} <span class="text-sepia text-sm font-sans">{i.unit}</span>
+                  {i.quantity} <span class="text-sepia text-sm font-sans">{formatUnit(i.unit, i.quantity)}</span>
                 </span>
               {/if}
             </li>

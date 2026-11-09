@@ -4,6 +4,27 @@ import { eq, and, inArray, desc } from 'drizzle-orm';
 import { generateRecipeCode } from './codes.js';
 import { savePhoto, deletePhoto } from './uploads.js';
 import { resolveOrCreate } from './ingredients/catalog.js';
+import { parseServings } from '../ingredients/portions.js';
+import { importRecipeImage } from './recipe-images.js';
+
+async function selectedPhoto(formData) {
+  const file = formData.get('photo');
+  if (file && typeof file !== 'string' && file.size) {
+    if (file.size > 15 * 1024 * 1024) throw new Error('La photo dépasse 15 Mo. Choisis une image plus légère.');
+    const path = await savePhoto(file);
+    if (!path) throw new Error('Format de photo non pris en charge. Choisis une image JPEG, PNG, WebP ou GIF.');
+    return { path, credit: '', source: '' };
+  }
+  const pageId = formData.get('photo_commons_id');
+  if (!pageId) return null;
+  try {
+    const image = await importRecipeImage(pageId);
+    return { path: await savePhoto(image.file), credit: image.credit, source: image.source };
+  } catch (err) {
+    if (err?.name === 'TimeoutError' || err?.name === 'TypeError') throw new Error('L’import de l’image a échoué. Réessaie ou choisis une photo dans la galerie.');
+    throw err;
+  }
+}
 
 /**
  * Parse les champs d'ingrédients depuis un FormData (champs répétés `ing_*`).
@@ -68,10 +89,10 @@ async function uniqueRecipeCode() {
 export async function createRecipe(userId, formData) {
   const title = String(formData.get('title') ?? '').trim();
   if (!title) throw new Error('Le titre est requis');
+  const servings = parseServings(formData.get('servings') ?? 2);
 
   const code = await uniqueRecipeCode();
-  const photoFile = formData.get('photo');
-  const photoPath = await savePhoto(photoFile);
+  const photo = await selectedPhoto(formData);
 
   const [inserted] = await db
     .insert(recipes)
@@ -81,9 +102,11 @@ export async function createRecipe(userId, formData) {
       title,
       description: String(formData.get('description') ?? '').trim(),
       owner: String(formData.get('owner') ?? '').trim(),
-      servings: Number(formData.get('servings') ?? 2) || 2,
+      servings,
       instructions: String(formData.get('instructions') ?? ''),
-      photoPath
+      photoPath: photo?.path ?? null,
+      photoCredit: photo?.credit ?? '',
+      photoSource: photo?.source ?? ''
     })
     .returning();
 
@@ -107,16 +130,22 @@ export async function updateRecipe(userId, id, formData) {
 
   const title = String(formData.get('title') ?? '').trim();
   if (!title) throw new Error('Le titre est requis');
+  const servings = parseServings(formData.get('servings') ?? 2);
 
   let photoPath = current.photoPath;
-  const photoFile = formData.get('photo');
-  const newPhoto = await savePhoto(photoFile);
-  if (newPhoto) {
+  let photoCredit = current.photoCredit;
+  let photoSource = current.photoSource;
+  const newPhoto = await selectedPhoto(formData);
+  if (newPhoto?.path) {
     deletePhoto(current.photoPath);
-    photoPath = newPhoto;
+    photoPath = newPhoto.path;
+    photoCredit = newPhoto.credit;
+    photoSource = newPhoto.source;
   } else if (formData.get('remove_photo')) {
     deletePhoto(current.photoPath);
     photoPath = null;
+    photoCredit = '';
+    photoSource = '';
   }
 
   await db
@@ -125,9 +154,9 @@ export async function updateRecipe(userId, id, formData) {
       title,
       description: String(formData.get('description') ?? '').trim(),
       owner: String(formData.get('owner') ?? '').trim(),
-      servings: Number(formData.get('servings') ?? 2) || 2,
+      servings,
       instructions: String(formData.get('instructions') ?? ''),
-      photoPath
+      photoPath, photoCredit, photoSource
     })
     .where(eq(recipes.id, id));
 
@@ -182,7 +211,9 @@ export async function getRecipesForCards(userId, ids) {
     title: recipes.title,
     description: recipes.description,
     owner: recipes.owner,
-    photoPath: recipes.photoPath
+    photoPath: recipes.photoPath,
+    photoCredit: recipes.photoCredit,
+    photoSource: recipes.photoSource
   };
   if (ids && ids.length > 0) {
     const rows = await db

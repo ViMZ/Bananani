@@ -1,4 +1,6 @@
 <script>
+  import PhotoCredit from '$lib/components/PhotoCredit.svelte';
+  import { formatUnit } from '$lib/ingredients/units';
   import Barcode from '$lib/components/Barcode.svelte';
   import Sprig from '$lib/components/Sprig.svelte';
 
@@ -51,6 +53,7 @@
       {#if recipe.photoPath}
         <div class="bg-panna p-2 shadow-soft border border-umber/15">
           <img src={recipe.photoPath} alt={recipe.title} class="w-full aspect-square object-cover" />
+        <PhotoCredit recipe={recipe} />
         </div>
       {:else}
         <div class="bg-panna p-2 shadow-soft border border-umber/15">
@@ -96,7 +99,7 @@
                 <div>
                   <span class="font-sans font-medium text-umber">{i.name}</span>
                   {#if i.quantity}
-                    <span class="font-display text-umber"> — {i.quantity}<span class="text-sepia font-sans text-[11px]">{i.unit}</span></span>
+                    <span class="font-display text-umber"> — {i.quantity}<span class="text-sepia font-sans text-[11px]">{formatUnit(i.unit, i.quantity)}</span></span>
                   {/if}
                   {#if i.brand || i.productReference}
                     <div class="font-mono text-[10px] uppercase tracking-wider text-sepia">

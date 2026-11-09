@@ -1,4 +1,5 @@
 <script>
+  import PhotoCredit from '$lib/components/PhotoCredit.svelte';
   let { data } = $props();
   let { cards } = $derived(data);
 
@@ -41,6 +42,7 @@
             <div class="m-photo-frame">
               {#if c.photoPath}
                 <img class="m-photo" src={c.photoPath} alt={c.title} />
+                <PhotoCredit recipe={c} compact />
               {:else}
                 <div class="m-photo m-photo--empty">
                   <span class="font-display italic text-4xl text-sepia">N°</span>
@@ -150,11 +152,15 @@
     flex: 1;
     min-width: 0;
     height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
   .m-photo {
     width: 100%;
-    height: 100%;
+    height: 0;
+    flex: 1;
+    min-height: 0;
     object-fit: cover;
     display: block;
     border: 0.25mm solid rgba(61, 47, 37, 0.25); /* umber, liseré intérieur */

@@ -30,6 +30,8 @@ export const recipes = sqliteTable('recipes', {
   servings: integer('servings').default(2),
   instructions: text('instructions').default(''),
   photoPath: text('photo_path'),
+  photoCredit: text('photo_credit').default(''),
+  photoSource: text('photo_source').default(''),
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull()
 });
 
@@ -67,6 +69,8 @@ export const shoppingItems = sqliteTable('shopping_items', {
   unit: text('unit').default(''),
   notes: text('notes').default(''),
   checked: integer('checked', { mode: 'boolean' }).default(false),
+  batchId: text('batch_id'),
+  servings: integer('servings'),
   addedAt: text('added_at').default(sql`(CURRENT_TIMESTAMP)`).notNull()
 });
 
@@ -84,6 +88,7 @@ export const mealPlan = sqliteTable('meal_plan', {
   weekStart: text('week_start').notNull(), // date du lundi, 'YYYY-MM-DD'
   dayOfWeek: integer('day_of_week').notNull(), // 0 = lundi … 6 = dimanche
   meal: text('meal').notNull().default('midi'), // 'midi' | 'soir'
+  servings: integer('servings'), // null : ancien placement, portions de la recette
   position: integer('position').default(0),
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull()
 });

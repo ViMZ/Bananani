@@ -30,3 +30,31 @@ test('provider failures never disclose upstream details', async () => {
   await assert.rejects(extractRecipe(Buffer.from('x'), 'image/png', 'secret', async () => new Response('sensitive', { status: 401 })), /accès Mistral/);
   await assert.rejects(extractRecipe(Buffer.from('x'), 'image/png', 'secret', async () => Response.json({ document_annotation: 'invalid' })), /illisible/);
 });
+
+test('personal ingredient-only cards preserve order and missing information', async () => {
+  const names = ['Lasagnes', 'Bœuf haché', 'Oignons', 'Tomates ou sauce tomate', 'Carottes', 'Crème de soja et lait'];
+  const card = { isRecipe: true, title: 'Lasagnes', servings: null, instructions: '',
+    ingredients: names.map(name => ({ name, quantity: null, unit: '', notes: '' })) };
+  const result = await extractRecipe(Buffer.from('card'), 'image/jpeg', 'test', async (url, options) => {
+    const prompt = JSON.parse(options.body).document_annotation_prompt;
+    assert.match(prompt, /même sans quantités, portions ni étapes/);
+    return Response.json({ document_annotation: card });
+  });
+  assert.deepEqual(result.ingredients.map(i => i.name), names);
+  assert.ok(result.ingredients.every(i => i.quantity === ''));
+  assert.equal(result.recipe.servings, '');
+  assert.equal(result.warnings.length, 3);
+});
+
+test('OCR normalizes plural units while retaining quantities', () => {
+  const result = validateRecipe({ ...sample, ingredients: [{ name: 'jambon', quantity: 2, unit: 'tranches', notes: '' }] });
+  assert.equal(result.ingredients[0].unit, 'tranche');
+  assert.equal(result.ingredients[0].quantity, 2);
+});
+
+test('a missing quantity cannot introduce an inferred unit', () => {
+  const result = validateRecipe({ ...sample, ingredients: [{ name: 'Lasagnes', quantity: null, unit: 'feuille', notes: '' }] });
+  assert.equal(result.ingredients[0].quantity, '');
+  assert.equal(result.ingredients[0].unit, '');
+  assert.equal(result.ingredients[0].notes, '');
+});

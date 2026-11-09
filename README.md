@@ -27,6 +27,54 @@ npm run preview      # preview du build
 
 ## Hébergement : Fly.io
 
+### Recettes, portions et courses
+
+Les nouveaux ingrédients sont ajoutés à la fin de la recette. Les boutons
+« Monter » et « Descendre » permettent de changer leur ordre, conservé à
+l’enregistrement et sur les fiches imprimées.
+
+Le nombre de personnes d’une recette correspond à ses quantités de référence.
+Dans « Semaine », chaque repas possède son propre nombre de personnes (1 à 50).
+La génération des courses adapte proportionnellement les quantités : une recette
+pour 4 personnes lundi et 2 mardi produit les courses pour 6 portions. La vue
+« Par recette » affiche le total. Les portions sont conservées lors d’un déplacement
+ou d’une copie de semaine. Les courses sont un instantané : modifier ensuite la
+recette ne change pas une liste déjà générée. Les anciens placements héritent des
+portions de leur recette jusqu’à leur premier ajustement.
+
+Une case vide dans les courses signifie « à acheter » ; cochée, elle signifie
+« dans le panier ou acheté ». Décocher remet l’article à acheter. La corbeille
+exclut un article ; « Retirer les articles achetés » retire les lignes cochées.
+L’impression contient uniquement les articles non cochés. Les unités dénombrables
+s’accordent avec les quantités affichées ; les symboles g, ml… restent invariables.
+
+### Illustrer un plat
+
+Le formulaire propose l’appareil photo, la galerie et un aperçu avant enregistrement.
+« Rechercher une image » interroge Wikimedia Commons, sans clé supplémentaire.
+L’auteur, la licence et le lien source sont conservés avec l’image et affichés sur
+la recette et les fiches. Seules les images JPEG, PNG et WebP avec licence CC BY,
+CC BY-SA, CC0 ou domaine public identifiée sont proposées. Les métadonnées sont
+revérifiées à l’enregistrement, puis l’image est stockée sur le volume local.
+Limites : 60 recherches par utilisateur et par heure (en mémoire), téléchargement
+de 5 Mo maximum ; délais de 15 s pour la recherche et 20 s pour l’image.
+
+### Vérifications
+
+Utiliser Node 22, comme dans Docker, pour le module SQLite natif.
+
+```sh
+npm test
+npm run build
+npm run test:integration
+```
+
+Les tests utilisent des bases SQLite temporaires et vérifient notamment les
+migrations, l’ordre des ingrédients, les portions, les totaux, le cochage,
+l’impression et l’isolation entre comptes. Le workflow de déploiement les exécute
+avant de publier. Pour vérifier aussi une vraie recherche et un import Commons :
+exécuter `npm run test:integration` avec `LIVE_COMMONS=1` dans l’environnement.
+
 ### Validation des rayons
 
 La création et la modification d’une recette passent par « Vérifier les rayons ».
@@ -51,6 +99,13 @@ WebP (une page), puis lancer l’analyse. Les photos sont automatiquement rédui
 de vérifier la limite d’envoi de 10 Mo. Appliquer le résultat au
 formulaire et le relire avant l’enregistrement. Les images sont transmises à
 Mistral et ne sont pas conservées par Bananani pour le scan.
+
+Les fiches personnelles, manuscrites et les pages de livre sont acceptées ; un titre
+et des ingrédients suffisent même sans quantités, portions ni étapes. Les données
+absentes restent vides et sont signalées pour être complétées. Photographier la
+fiche de près, à plat et sans reflet. L’écran « Scanner » sert à retrouver une
+recette existante via son code Bananani ; son lien « Importer une recette papier »
+ouvre la lecture OCR pour les documents sans code.
 
 Configurer `MISTRAL_API_KEY` uniquement côté serveur : variable d’environnement
 en local, secret Fly.io en production (`fly secrets import` via l’entrée standard).

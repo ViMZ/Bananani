@@ -14,6 +14,14 @@ jobs:
     concurrency: deploy-group # une seule release à la fois
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:integration
       - uses: superfly/flyctl-actions/setup-flyctl@master
       # --strategy immediate : pas d'attente de health-check (la machine s'auto-éteint
       # avec scale-to-zero, sinon flyctl reste bloqué à la surveiller).

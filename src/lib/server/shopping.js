@@ -1,6 +1,21 @@
 import { db } from './db/index.js';
 import { shoppingItems } from './db/schema.js';
 import { eq, and } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { effectiveServings, scaleQuantity } from '../ingredients/portions.js';
+
+/** Snapshot d'un repas : ses quantités et portions ne changent plus avec la recette. */
+export function shoppingRows(userId, recipe, ingredients, servings = recipe.servings) {
+  const target = effectiveServings(servings, recipe.servings);
+  const batchId = randomUUID();
+  return ingredients.map((i) => ({
+    userId, recipeId: recipe.id, recipeTitle: recipe.title,
+    canonicalId: i.canonicalId, name: i.name, brand: i.brand,
+    productReference: i.productReference,
+    quantity: scaleQuantity(i.quantity, recipe.servings || 2, target),
+    unit: i.unit, notes: i.notes, checked: false, batchId, servings: target
+  }));
+}
 
 /**
  * Vrai si au moins une ligne de la liste de courses de cet utilisateur provient de

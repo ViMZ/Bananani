@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node build",
+    "test": "node --test scripts/*.test.js",
+    "test:integration": "node --test scripts/feedback.integration.js",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "node scripts/seed.js",

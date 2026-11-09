@@ -127,3 +127,8 @@ addColumnIfMissing('ingredient_catalog', 'default_unit', "TEXT DEFAULT ''");
 addColumnIfMissing('ingredient_catalog', 'category', "TEXT DEFAULT ''");
 addColumnIfMissing('recipes', 'owner', "TEXT DEFAULT ''");
 addColumnIfMissing('meal_plan', 'meal', "TEXT NOT NULL DEFAULT 'midi'");
+addColumnIfMissing('meal_plan', 'servings', 'INTEGER');
+addColumnIfMissing('shopping_items', 'servings', 'INTEGER');
+addColumnIfMissing('shopping_items', 'batch_id', 'TEXT');
+addColumnIfMissing('recipes', 'photo_credit', "TEXT DEFAULT ''");
+addColumnIfMissing('recipes', 'photo_source', "TEXT DEFAULT ''");

@@ -1,9 +1,10 @@
 <script>
-  import { tick } from 'svelte';
+  import { tick, onDestroy } from 'svelte';
   import { normalizeName } from '$lib/ingredients/normalize';
   import { cleanCategory, categoryOptions } from '$lib/ingredients/categories';
-  import { UNITS } from '$lib/ingredients/units';
+  import { UNITS, formatUnit } from '$lib/ingredients/units';
   import Combobox from '$lib/components/Combobox.svelte';
+  import PhotoCredit from '$lib/components/PhotoCredit.svelte';
 
   let {
     recipe = { title: '', description: '', owner: '', servings: 2, instructions: '', photoPath: null },
@@ -22,6 +23,7 @@
   let scanFile = $state(null);
   let scanPreparing = $state(false);
   let scanInfo = $state('');
+  let scanWarnings = $state([]);
   let reviewingCategories = $state(false);
   let suggestingCategories = $state(false);
   let categoryError = $state('');
@@ -94,6 +96,7 @@
       formElement.elements.namedItem(name).value = scanResult.recipe[name] ?? '';
     }
     items = scanResult.ingredients.map((i) => ({ ...blank(), ...i }));
+    scanWarnings = scanResult.warnings || [];
     scanResult = null;
     scanApplied = true;
   }
@@ -108,7 +111,7 @@
   const catalogNames = catalog.map((e) => e.name);
 
   function blank() {
-    return { name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '', category: '', categoryName: '' };
+    return { key: crypto.randomUUID(), name: '', brand: '', productReference: '', quantity: '', unit: '', notes: '', category: '', categoryName: '' };
   }
 
   // À l'édition, la catégorie n'est pas stockée sur la ligne : on la retrouve via
@@ -126,7 +129,15 @@
   let availableCategories = $derived(categoryOptions([...catalog.map(i => i.category), ...items.map(i => i.category)]));
 
   function addIngredient() {
-    items = [blank(), ...items];
+    items = [...items, blank()];
+  }
+
+  function moveIngredient(index, offset) {
+    const target = index + offset;
+    if (target < 0 || target >= items.length) return;
+    const next = [...items];
+    [next[index], next[target]] = [next[target], next[index]];
+    items = next;
   }
 
   function removeIngredient(idx) {
@@ -163,6 +174,44 @@
   let photoError = $state('');
   let photoInfo = $state('');
   let compressing = $state(false);
+  let photoInput;
+  let photoPreview = $state('');
+  let selectedImage = $state(null);
+  let imageSearchOpen = $state(false);
+  let imageQuery = $state('');
+  let imageResults = $state(null);
+  let imageSearching = $state(false);
+  let imageSearchError = $state('');
+
+  function clearPreview() {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    photoPreview = '';
+  }
+  onDestroy(clearPreview);
+
+  async function searchImages() {
+    if (imageSearching) return;
+    imageSearching = true;
+    imageSearchError = '';
+    imageResults = null;
+    try {
+      const response = await fetch(`/recipes/images?q=${encodeURIComponent(imageQuery)}`);
+      if (response.redirected) throw new Error('Ta session a expiré. Reconnecte-toi.');
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Recherche indisponible.');
+      imageResults = result.images;
+    } catch (err) { imageSearchError = err instanceof Error ? err.message : 'Recherche indisponible.'; }
+    finally { imageSearching = false; }
+  }
+
+  function chooseImage(image) {
+    clearPreview();
+    photoInput.value = '';
+    selectedImage = image;
+    photoError = '';
+    photoInfo = '';
+    imageSearchOpen = false;
+  }
 
   /**
    * Renvoie une version optimisée (JPEG redimensionné) si utile, sinon le fichier tel quel.
@@ -219,27 +268,30 @@
     const input = e.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
+    selectedImage = null;
+    clearPreview();
 
     compressing = true;
     try {
       const out = await maybeCompress(file);
-      if (out !== file) {
+      if (out !== file || input !== photoInput) {
         // Remplace le fichier de l'input par la version optimisée (soumise au submit).
         const dt = new DataTransfer();
         dt.items.add(out);
-        input.files = dt.files;
-        photoInfo = `Photo optimisée : ${(file.size / 1024 / 1024).toFixed(1)} Mo → ${(out.size / 1024 / 1024).toFixed(1)} Mo`;
+        photoInput.files = dt.files;
+        if (out !== file) photoInfo = `Photo optimisée : ${(file.size / 1024 / 1024).toFixed(1)} Mo → ${(out.size / 1024 / 1024).toFixed(1)} Mo`;
       }
     } catch {
-      // Compression indisponible : on garde l'original, la validation ci-dessous prend le relais.
+      photoError = 'Impossible de préparer cette photo. Essaie de la choisir dans la galerie.';
     } finally {
       compressing = false;
     }
 
-    const finalFile = input.files?.[0];
+    const finalFile = photoInput.files?.[0];
     if (finalFile && finalFile.size > MAX_PHOTO_BYTES) {
       photoError = `Même optimisée, cette photo fait ${(finalFile.size / 1024 / 1024).toFixed(1)} Mo (maximum ${MAX_PHOTO_MB} Mo). Choisis une image plus légère — ta saisie est conservée.`;
     }
+    if (finalFile && !photoError) photoPreview = URL.createObjectURL(finalFile);
   }
 
   function onSubmit(e) {
@@ -258,9 +310,10 @@
 </script>
 
 {#if allowScan && !reviewingCategories}
-  <section class="card mb-8 space-y-4">
+  <section id="import-scan" class="card mb-8 space-y-4">
     <h2 class="h-eyebrow">Scanner une recette papier</h2>
-    <p class="text-sm text-sepia">Photographie une recette ou importe une image. Elle sera envoyée à Mistral pour extraire le texte, puis tu pourras le relire avant d’enregistrer.</p>
+    <p class="text-sm text-sepia">Photographie une fiche personnelle, une page de livre ou une recette manuscrite, ou importe une image. Aucun code Bananani n’est nécessaire. Un titre et une liste d’ingrédients suffisent, même sans quantités ni étapes.</p>
+    <p class="text-sm text-sepia">L’image sera envoyée à Mistral pour extraire le texte ; tu pourras tout corriger avant d’enregistrer. Cadre la fiche de près, à plat, sans reflet et avec le texte net.</p>
     <div class="flex flex-wrap gap-3">
       <label class="btn-secondary cursor-pointer">
         Prendre une photo
@@ -279,16 +332,18 @@
       {#if scanInfo}<p class="text-sm text-mare">{scanInfo}</p>{/if}
       {#if scanError}<p role="alert" class="text-terra mt-3">{scanError}</p>{/if}
       {#if scanApplied}<p class="text-sm text-mare mt-3">Recette préremplie. Vérifie les quantités, les unités et les portions, puis clique sur « Créer la recette ».</p>{/if}
+      {#if scanApplied}{#each scanWarnings as warning}<p class="text-sm text-sepia mt-2">{warning}</p>{/each}{/if}
     </div>
     {#if scanResult}
       <div class="bg-linen rounded p-4 space-y-3">
         <h3 class="font-display text-2xl italic">{scanResult.recipe.title || 'Titre à compléter'}</h3>
         <p class="text-sm">{scanResult.ingredients.length} ingrédients · Portions : {scanResult.recipe.servings || 'à compléter'}</p>
         <ul class="text-sm space-y-1">
-          {#each scanResult.ingredients as ingredient}<li>{ingredient.quantity} {ingredient.unit} {ingredient.name}{ingredient.notes ? ` — ${ingredient.notes}` : ''}</li>{/each}
+          {#each scanResult.ingredients as ingredient}<li>{ingredient.quantity} {formatUnit(ingredient.unit, ingredient.quantity)} {ingredient.name}{ingredient.notes ? ` — ${ingredient.notes}` : ''}</li>{/each}
         </ul>
         <details><summary class="cursor-pointer text-sm">Voir les étapes</summary><p class="whitespace-pre-wrap text-sm mt-2">{scanResult.recipe.instructions || 'Étapes à compléter'}</p></details>
         <p class="text-sm text-sepia">Les champs du formulaire ci-dessous seront remplacés. La photo du plat sera conservée.</p>
+        {#each scanResult.warnings || [] as warning}<p class="text-sm text-sepia">{warning}</p>{/each}
         <button type="button" class="btn-primary" onclick={applyScan}>Utiliser cette recette</button>
         <button type="button" class="btn-secondary" onclick={() => scanResult = null}>Ignorer</button>
       </div>
@@ -321,8 +376,9 @@
           <input class="input italic" id="description" name="description" value={recipe.description ?? ''} placeholder="ex. Recette de la nonna" />
         </div>
         <div>
-          <label class="label" for="servings">Personnes</label>
-          <input class="input font-display text-center text-xl" id="servings" name="servings" type="number" min="1" max="50" required={scanApplied} value={recipe.servings ?? 2} />
+          <label class="label" for="servings">Personnes de référence</label>
+          <input class="input font-display text-center text-xl" id="servings" name="servings" type="number" min="1" max="50" required value={recipe.servings ?? 2} />
+          <p class="text-xs text-sepia mt-1">Quantités pour ce nombre de personnes. Tu pourras l’adapter à chaque repas dans la semaine.</p>
         </div>
       </div>
 
@@ -333,7 +389,47 @@
 
       <div>
         <label class="label" for="photo">Photo du plat</label>
-        <input class="input file:mr-3 file:border-0 file:bg-mare file:text-panna file:px-3 file:py-1.5 file:rounded file:font-sans file:text-xs file:font-medium file:cursor-pointer file:hover:bg-mare-deep" id="photo" name="photo" type="file" accept="image/*" onchange={onPhotoChange} />
+        <div class="flex flex-wrap gap-2">
+          <label class="btn-secondary cursor-pointer">Prendre une photo du plat
+            <input class="sr-only" aria-label="Prendre une photo du plat" type="file" accept="image/*" capture="environment" disabled={compressing} onchange={onPhotoChange} />
+          </label>
+          <label class="btn-secondary cursor-pointer">Choisir dans la galerie
+            <input class="sr-only" bind:this={photoInput} id="photo" name="photo" type="file" accept="image/*" disabled={compressing} onchange={onPhotoChange} />
+          </label>
+          <button type="button" class="btn-secondary" disabled={compressing} onclick={() => { imageSearchOpen = !imageSearchOpen; imageQuery ||= formElement.elements.namedItem('title').value; }}>Rechercher une image</button>
+        </div>
+        <input type="hidden" name="photo_commons_id" value={selectedImage?.pageId ?? ''} />
+        {#if photoPreview || selectedImage}
+          <div class="mt-3 space-y-2">
+            <img src={photoPreview || selectedImage.url} alt="Aperçu du plat choisi" class="w-40 h-40 object-cover rounded" />
+            {#if selectedImage}<p class="text-xs text-sepia">{selectedImage.author} · {selectedImage.license} · <a class="underline" href={selectedImage.source} target="_blank" rel="noreferrer">Source</a></p>{/if}
+            <button type="button" class="btn-ghost btn-sm" onclick={() => { clearPreview(); selectedImage = null; photoInput.value = ''; photoInfo = ''; photoError = ''; }}>Annuler ce choix</button>
+          </div>
+        {/if}
+        {#if imageSearchOpen}
+          <div class="mt-4 p-4 bg-linen rounded space-y-3">
+            <p class="text-sm text-sepia">Images réutilisables de Wikimedia Commons. L’auteur, la licence et le lien source seront conservés avec la recette.</p>
+            <div class="flex flex-wrap gap-2">
+              <input class="input flex-1 min-w-0" aria-label="Nom du plat à illustrer" bind:value={imageQuery} maxlength="100" placeholder="Lasagnes, tarte aux pommes…" onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchImages(); } }} />
+              <button type="button" class="btn-secondary" disabled={imageSearching || imageQuery.trim().length < 2} onclick={searchImages}>{imageSearching ? 'Recherche…' : 'Chercher'}</button>
+            </div>
+            <div aria-live="polite">
+              {#if imageSearchError}<p role="alert" class="text-sm text-terra">{imageSearchError}</p>{/if}
+              {#if imageResults?.length === 0}<p class="text-sm text-sepia">Aucune image trouvée. Essaie un nom plus simple ou en anglais, ou choisis une photo dans la galerie.</p>{/if}
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {#each imageResults || [] as image (image.pageId)}
+                <div class="space-y-1 min-w-0">
+                  <button type="button" class="w-full text-left" aria-label={`Choisir ${image.title}`} onclick={() => chooseImage(image)}>
+                    <img src={image.url} alt={image.title} class="aspect-square object-cover w-full rounded" loading="lazy" />
+                    <span class="text-xs block break-words">{image.title}</span>
+                  </button>
+                  <a class="text-[10px] text-sepia underline break-words" href={image.source} target="_blank" rel="noreferrer">{image.author} · {image.license}</a>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
         <p class="text-xs text-sepia italic mt-1.5">
           JPEG, PNG, WebP ou GIF · les grandes photos sont automatiquement optimisées.
         </p>
@@ -350,11 +446,12 @@
         {/if}
         {#if recipe.photoPath}
           <div class="mt-3 flex items-center gap-4 p-3 bg-sand rounded border border-umber/15">
-            <img src={recipe.photoPath} alt="Photo actuelle" class="w-20 h-20 object-cover rounded shadow-soft" />
+            <img src={recipe.photoPath} alt={recipe.title} class="w-20 h-20 object-cover rounded shadow-soft" />
             <label class="text-sm flex items-center gap-2 cursor-pointer text-umber">
               <input type="checkbox" name="remove_photo" class="w-4 h-4 accent-terra" /> Supprimer la photo actuelle
             </label>
           </div>
+          <PhotoCredit {recipe} />
         {/if}
       </div>
     </div>
@@ -367,12 +464,18 @@
       <button type="button" class="btn-secondary btn-sm" onclick={addIngredient}>＋ Ajouter</button>
     </div>
 
+    <p class="text-sm text-sepia mb-5">Les ingrédients gardent leur ordre de saisie. Utilise les flèches pour les déplacer.</p>
     <div class="space-y-4">
-      {#each items as item, idx}
+      {#each items as item, idx (item.key)}
         <div class="bg-linen rounded p-4 border border-umber/10 relative">
           <span class="absolute -top-3 left-4 px-2 bg-linen font-display italic text-mare text-lg leading-none">
             {romanNumerals[idx] || idx + 1}
           </span>
+
+          <div class="flex justify-end gap-2 mb-2">
+            <button type="button" class="btn-secondary btn-sm" disabled={idx === 0} aria-label={`Monter l’ingrédient ${idx + 1}`} onclick={() => moveIngredient(idx, -1)}>↑ Monter</button>
+            <button type="button" class="btn-secondary btn-sm" disabled={idx === items.length - 1} aria-label={`Descendre l’ingrédient ${idx + 1}`} onclick={() => moveIngredient(idx, 1)}>↓ Descendre</button>
+          </div>
 
           <div class="grid sm:grid-cols-[1fr_100px_90px] gap-2 mb-2 mt-1">
             <Combobox name="ing_name" options={catalogNames} placeholder="Nom (ex. Pomodori pelati)" required={idx === 0} bind:value={item.name} onselect={() => prefillFromCatalog(item)} />
@@ -395,6 +498,7 @@
         </div>
       {/each}
     </div>
+    <button type="button" class="btn-secondary mt-4" onclick={addIngredient}>＋ Ajouter un ingrédient</button>
   </section>
 
   <!-- Instructions -->

@@ -81,9 +81,9 @@
           <section>
             <div class="flex items-baseline gap-4 mb-3">
               <h2 class="h-display italic text-xl text-mare">{group.title}</h2>
-              {#if group.instances > 1}
+              {#if group.totalServings || group.instances > 1}
                 <span class="font-mono text-[10px] uppercase tracking-wider text-mare">
-                  {#if group.servings}{group.servings} pers × {group.instances}{:else}× {group.instances}{/if}
+                  {#if group.totalServings}{group.totalServings} portions au total · {group.instances} repas{:else}× {group.instances}{/if}
                 </span>
               {/if}
               <span class="flex-1 h-px bg-mare/30"></span>

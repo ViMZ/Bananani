@@ -4,6 +4,8 @@ import { mealPlan, recipes, shoppingItems } from '$lib/server/db/schema';
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { getRecipesForCards, getRecipeWithIngredients } from '$lib/server/recipes';
 import { mondayOf, todayISO, isValidISO, isPastDay, addWeeks, parseISO } from '$lib/date/week';
+import { effectiveServings, parseServings } from '$lib/ingredients/portions';
+import { shoppingRows } from '$lib/server/shopping';
 
 export async function load({ url, locals }) {
   const userId = locals.user.id;
@@ -17,6 +19,8 @@ export async function load({ url, locals }) {
       recipeId: mealPlan.recipeId,
       dayOfWeek: mealPlan.dayOfWeek,
       meal: mealPlan.meal,
+      servings: mealPlan.servings,
+      referenceServings: recipes.servings,
       position: mealPlan.position,
       title: recipes.title,
       photoPath: recipes.photoPath
@@ -38,7 +42,7 @@ export async function load({ url, locals }) {
 
   return {
     weekStart,
-    placements,
+    placements: placements.map(p => ({ ...p, servings: effectiveServings(p.servings, p.referenceServings) })),
     recipes: recipeList,
     hasShopping: shoppingProbe.length > 0,
     todayISO: todayISO()
@@ -69,7 +73,7 @@ export const actions = {
     return db.transaction((tx) => {
       const previous = tx.select({
         recipeId: mealPlan.recipeId, dayOfWeek: mealPlan.dayOfWeek,
-        meal: mealPlan.meal, position: mealPlan.position
+        meal: mealPlan.meal, position: mealPlan.position, servings: mealPlan.servings
       }).from(mealPlan)
         .innerJoin(recipes, eq(mealPlan.recipeId, recipes.id))
         .where(and(eq(mealPlan.userId, userId), eq(recipes.userId, userId),
@@ -117,11 +121,14 @@ export const actions = {
 
     // La recette doit appartenir à l'utilisateur.
     const owned = await db
-      .select({ id: recipes.id })
+      .select({ id: recipes.id, servings: recipes.servings })
       .from(recipes)
       .where(and(eq(recipes.id, recipeId), eq(recipes.userId, userId)))
       .limit(1);
     if (owned.length === 0) return fail(404, { error: 'Recette introuvable' });
+    let servings;
+    try { servings = effectiveServings(fd.get('servings'), owned[0].servings); }
+    catch (err) { return fail(400, { error: err.message }); }
 
     // position = fin de la file du créneau (jour + midi/soir).
     const last = await db
@@ -141,9 +148,22 @@ export const actions = {
 
     const [created] = await db
       .insert(mealPlan)
-      .values({ userId, recipeId, weekStart, dayOfWeek, meal, position })
+      .values({ userId, recipeId, weekStart, dayOfWeek, meal, position, servings })
       .returning();
     return { placed: created };
+  },
+
+  portions: async ({ request, locals }) => {
+    const fd = await request.formData();
+    const id = Number(fd.get('id'));
+    let servings;
+    try { servings = parseServings(fd.get('servings')); }
+    catch (err) { return fail(400, { error: err.message }); }
+    if (!Number.isInteger(id) || id < 1) return fail(400, { error: 'Repas invalide' });
+    const changed = await db.update(mealPlan).set({ servings })
+      .where(and(eq(mealPlan.userId, locals.user.id), eq(mealPlan.id, id))).returning({ id: mealPlan.id });
+    if (!changed.length) return fail(404, { error: 'Repas introuvable' });
+    return { updated: true };
   },
 
   // Déplacer un placement (changement de jour et/ou de position).
@@ -184,7 +204,7 @@ export const actions = {
     if (!isValidISO(weekStart)) return fail(400, { error: 'Semaine invalide' });
 
     const placements = await db
-      .select({ recipeId: mealPlan.recipeId, dayOfWeek: mealPlan.dayOfWeek })
+      .select({ recipeId: mealPlan.recipeId, dayOfWeek: mealPlan.dayOfWeek, servings: mealPlan.servings })
       .from(mealPlan)
       .where(and(eq(mealPlan.userId, userId), eq(mealPlan.weekStart, weekStart)))
       .orderBy(asc(mealPlan.dayOfWeek), asc(mealPlan.position));
@@ -199,32 +219,17 @@ export const actions = {
       const data = await getRecipeWithIngredients(userId, p.recipeId);
       if (!data) continue;
       const { recipe, ingredients } = data;
-      for (const i of ingredients) {
-        values.push({
-          userId,
-          recipeId: recipe.id,
-          recipeTitle: recipe.title,
-          canonicalId: i.canonicalId,
-          name: i.name,
-          brand: i.brand,
-          productReference: i.productReference,
-          quantity: i.quantity,
-          unit: i.unit,
-          notes: i.notes,
-          checked: false
-        });
-      }
+      values.push(...shoppingRows(userId, recipe, ingredients, p.servings));
     }
 
     // Aucun ingrédient à ajouter et on n'a pas demandé de remise à zéro → rien à faire.
     if (values.length === 0 && mode !== 'replace') return { empty: true };
 
-    if (mode === 'replace') {
-      await db.delete(shoppingItems).where(eq(shoppingItems.userId, userId));
-    }
-    if (values.length > 0) {
-      await db.insert(shoppingItems).values(values);
-    }
+    db.transaction(tx => {
+      if (mode === 'replace') tx.delete(shoppingItems).where(eq(shoppingItems.userId, userId)).run();
+      // Petits lots pour rester sous la limite de paramètres SQLite.
+      for (let i = 0; i < values.length; i += 40) tx.insert(shoppingItems).values(values.slice(i, i + 40)).run();
+    });
     throw redirect(303, '/shopping');
   }
 };

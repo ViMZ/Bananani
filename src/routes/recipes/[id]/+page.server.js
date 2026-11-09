@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import { getRecipeWithIngredients, deleteRecipe } from '$lib/server/recipes';
-import { recipeInList } from '$lib/server/shopping';
+import { recipeInList, shoppingRows } from '$lib/server/shopping';
 import { db } from '$lib/server/db';
 import { shoppingItems } from '$lib/server/db/schema';
 
@@ -32,19 +32,7 @@ export const actions = {
     if (!force && (await recipeInList(userId, id))) return { alreadyInList: true };
 
     await db.insert(shoppingItems).values(
-      ingredients.map((i) => ({
-        userId,
-        recipeId: recipe.id,
-        recipeTitle: recipe.title,
-        canonicalId: i.canonicalId,
-        name: i.name,
-        brand: i.brand,
-        productReference: i.productReference,
-        quantity: i.quantity,
-        unit: i.unit,
-        notes: i.notes,
-        checked: false
-      }))
+      shoppingRows(userId, recipe, ingredients)
     );
     throw redirect(303, '/shopping');
   }
