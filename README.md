@@ -75,20 +75,16 @@ l’impression et l’isolation entre comptes. Le workflow de déploiement les e
 avant de publier. Pour vérifier aussi une vraie recherche et un import Commons :
 exécuter `npm run test:integration` avec `LIVE_COMMONS=1` dans l’environnement.
 
-### Validation des rayons
+### Classement des ingrédients par rayon
 
-La création et la modification d’une recette passent par « Vérifier les rayons ».
-Il est possible de sélectionner un rayon ou d’en saisir un nouveau (80 caractères).
-Les rayons personnalisés enregistrés sont proposés dans les recettes suivantes.
-Les rayons connus du catalogue sont réutilisés. Un seul appel à
-`ministral-3b-2512` propose les rayons manquants, parmi la liste autorisée.
-Les noms des ingrédients inconnus sont transmis à Mistral avec la même clé
-serveur que l’OCR. La suggestion ne modifie pas la base : seuls les choix
-enregistrés avec la recette corrigent le catalogue commun (et donc le classement
-des ingrédients correspondants). Une valeur vide conserve le rayon déjà connu,
-ou reste dans « Autres » si aucun rayon n’existe.
-En cas d’échec, la sélection manuelle reste disponible. Limites : 100 ingrédients
-par requête, 30 appels par utilisateur et par heure en mémoire, délai de 20 s.
+Le formulaire enregistre la recette en un clic. Il réutilise les rayons du
+catalogue et ceux issus de l’import pour les ingrédients inconnus. À l’enregistrement,
+les noms des ingrédients dont le rayon manque sont envoyés à `ministral-3b-2512`
+en un seul appel, avec la même clé serveur que l’OCR. Les rayons trouvés sont
+mémorisés dans le catalogue commun pour la liste de courses. Si le classement
+est indisponible, la recette est enregistrée et les ingrédients sans rayon sont
+rangés dans « Autres ». Limites : 100 ingrédients par requête, 30 appels par
+utilisateur et par heure en mémoire, délai de 20 s côté serveur.
 Tests : `node --test scripts/ingredient-categories.test.js`.
 
 ### Importer une recette papier

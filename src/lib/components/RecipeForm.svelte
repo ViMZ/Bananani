@@ -1,7 +1,7 @@
 <script>
-  import { tick, onDestroy } from 'svelte';
+  import { tick, onDestroy, untrack } from 'svelte';
   import { normalizeName } from '$lib/ingredients/normalize';
-  import { cleanCategory, categoryOptions } from '$lib/ingredients/categories';
+  import { cleanCategory } from '$lib/ingredients/categories';
   import { UNITS, formatUnit } from '$lib/ingredients/units';
   import Combobox from '$lib/components/Combobox.svelte';
   import PhotoCredit from '$lib/components/PhotoCredit.svelte';
@@ -18,6 +18,13 @@
     cancelHref = '/recipes'
   } = $props();
 
+  let fields = $state(untrack(() => ({
+    title: recipe.title,
+    description: recipe.description ?? '',
+    owner: recipe.owner ?? '',
+    servings: recipe.servings ?? 2,
+    instructions: recipe.instructions ?? ''
+  })));
   let formElement;
   let scanning = $state(false);
   let scanError = $state('');
@@ -33,48 +40,8 @@
   let scanPhase = $state('upload');
   let scanPreview = $derived(scanUseOriginal && scanResult?.original ? scanResult.original : scanResult);
   const suggestionLabels = { title: 'titre', description: 'description', owner: 'auteur', servings: 'personnes',
-    name: 'nom', quantity: 'quantité', unit: 'unité', notes: 'notes', brand: 'marque', productReference: 'référence', category: 'rayon' };
-  let reviewingCategories = $state(false);
-  let suggestingCategories = $state(false);
-  let categoryError = $state('');
-  let categorySection = $state();
-
-  async function reviewCategories() {
-    reviewingCategories = true;
-    suggestingCategories = true;
-    categoryError = '';
-    await tick();
-    categorySection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    try {
-      for (const item of items) prefillFromCatalog(item);
-      const missing = items.filter(i => i.name.trim() && !i.category);
-      if (!missing.length) return;
-      const response = await fetch('/recipes/categories', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ names: missing.map(i => i.name.trim()) }),
-        signal: AbortSignal.timeout(25000)
-      });
-      if (response.redirected) throw new Error('Ta session a expiré. Reconnecte-toi pour obtenir des suggestions.');
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Suggestions indisponibles. Choisis les rayons manuellement.');
-      const suggestions = new Map((result.suggestions || []).map(i => [i.key, i.category]));
-      for (const item of missing) {
-        const category = suggestions.get(normalizeName(item.name));
-        if (!item.category && cleanCategory(category)) item.category = cleanCategory(category);
-      }
-      categoryError = result.warning || '';
-    } catch (err) {
-      categoryError = err?.name === 'TimeoutError' ? 'Les suggestions prennent trop de temps. Choisis les rayons manuellement.'
-        : err instanceof Error ? err.message : 'Choisis les rayons manuellement.';
-    } finally { suggestingCategories = false; }
-  }
-
-  function chooseCategory(item, category) {
-    const clean = cleanCategory(category);
-    for (const other of items) {
-      if (normalizeName(other.name) === normalizeName(item.name)) other.category = clean;
-    }
-  }
+    name: 'nom', quantity: 'quantité', unit: 'unité', notes: 'notes', brand: 'marque', productReference: 'référence' };
+  let preparingSave = $state(false);
 
   async function scan() {
     if (!scanFile || scanning) return;
@@ -91,13 +58,7 @@
       scanPreparing = false;
       if (image.size > 10 * 1024 * 1024) throw new Error('Cette photo reste trop volumineuse après optimisation. Essaie une photo plus rapprochée de la recette ou une image JPEG.');
       if (image !== scanFile) scanInfo = `Photo optimisée : ${(scanFile.size / 1024 / 1024).toFixed(1)} Mo → ${(image.size / 1024 / 1024).toFixed(1)} Mo`;
-      const result = await importRecipe(image, { id: scanRequestId, onPhase: phase => { scanPhase = phase; } });
-      // Les rayons déjà choisis dans le catalogue priment sur une nouvelle suggestion.
-      for (const ingredient of result.ingredients || []) {
-        const known = byKey.get(normalizeName(ingredient.name));
-        if (known?.category) ingredient.category = known.category;
-      }
-      scanResult = result;
+      scanResult = await importRecipe(image, { id: scanRequestId, onPhase: phase => { scanPhase = phase; } });
       applyScan();
     } catch (err) {
       if (err?.restartImport) scanRequestId = crypto.randomUUID();
@@ -118,10 +79,13 @@
   }
 
   function applyScan() {
-    for (const name of ['title', 'description', 'owner', 'servings', 'instructions']) {
-      formElement.elements.namedItem(name).value = scanPreview.recipe[name] ?? '';
-    }
-    items = scanPreview.ingredients.map((i) => ({ ...blank(), ...i }));
+    const { title, description, owner, servings, instructions } = scanPreview.recipe;
+    fields = { title, description, owner, servings, instructions };
+    items = scanPreview.ingredients.map((i) => ({
+      ...blank(), ...i,
+      categoryName: normalizeName(i.name),
+      suggestedFields: i.suggestedFields?.filter(field => field !== 'category')
+    }));
     scanWarnings = scanPreview.warnings || [];
     scanSuggestedFields = scanUseOriginal ? [] : scanResult.review?.suggestedFields || [];
     scanApplied = true;
@@ -152,7 +116,6 @@
         }))
       : [blank()]
   );
-  let availableCategories = $derived(categoryOptions([...catalog.map(i => i.category), ...items.map(i => i.category)]));
 
   function addIngredient() {
     items = [...items, blank()];
@@ -174,7 +137,7 @@
   const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
     'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
 
-  // Pré-remplit unité et catégorie depuis le catalogue sans écraser une saisie.
+  // Les rayons du catalogue priment sur les suggestions de l’import.
   function prefillFromCatalog(item) {
     const key = normalizeName(item.name);
     if (item.categoryName && item.categoryName !== key) item.category = '';
@@ -182,7 +145,25 @@
     const entry = byKey.get(key);
     if (!entry) return;
     if (!item.unit && entry.unit) item.unit = entry.unit;
-    if (!item.category && entry.category) item.category = entry.category;
+    if (entry.category) item.category = entry.category;
+  }
+
+  async function fillMissingCategories() {
+    const missing = items.filter(i => i.name.trim() && !i.category);
+    if (!missing.length) return;
+    try {
+      const response = await fetch('/recipes/categories', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: missing.map(i => i.name.trim()) }),
+        signal: AbortSignal.timeout(25000)
+      });
+      if (!response.ok || response.redirected) return;
+      const result = await response.json();
+      const suggestions = new Map(result.suggestions.map(i => [i.key, i.category]));
+      for (const item of missing) item.category = cleanCategory(suggestions.get(normalizeName(item.name)));
+    } catch {
+      // L’enregistrement reste possible si le classement est indisponible.
+    }
   }
 
   // --- Photo : compression/redimensionnement automatique côté client ---
@@ -246,23 +227,27 @@
     if (finalFile && !photoError) photoPreview = URL.createObjectURL(finalFile);
   }
 
-  function onSubmit(e) {
-    if (compressing || photoError || scanning || suggestingCategories) {
+  async function onSubmit(e) {
+    if (compressing || photoError || scanning || preparingSave) {
       e.preventDefault();
       if (photoError) {
         document.getElementById('photo')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
       return;
     }
-    if (!reviewingCategories) {
-      e.preventDefault();
-      reviewCategories();
-    }
+    e.preventDefault();
+    preparingSave = true;
+    for (const item of items) prefillFromCatalog(item);
+    await fillMissingCategories();
+    preparingSave = false;
+    // Met à jour les champs masqués et réactive la validation avant l’envoi.
+    await tick();
+    if (formElement?.reportValidity()) formElement.submit();
   }
 </script>
 
-{#if allowScan && !reviewingCategories}
-  <section id="import-scan" class="card mb-8 space-y-4">
+{#if allowScan}
+  <section id="import-scan" class="card mb-8 space-y-4" inert={preparingSave}>
     <h2 class="h-eyebrow">Scanner une recette papier</h2>
     <p class="text-sm text-sepia">Photographie une fiche personnelle, une page de livre ou une recette manuscrite, ou importe une image. Aucun code Bananani n’est nécessaire. Un titre et une liste d’ingrédients suffisent, même sans quantités ni étapes.</p>
     <p class="text-sm text-sepia">Choisis une image ou prends une photo : le texte sera lu par Mistral, puis la recette sera vérifiée et préremplie automatiquement. Tu pourras corriger les quantités, les portions et les étapes avant d’enregistrer.</p>
@@ -324,7 +309,7 @@
 {/if}
 
 <form bind:this={formElement} method="POST" enctype="multipart/form-data" class="space-y-10" onsubmit={onSubmit}>
-  <fieldset class="space-y-10 min-w-0" hidden={reviewingCategories} disabled={scanning} aria-label="Saisie de la recette">
+  <fieldset class="space-y-10 min-w-0" inert={preparingSave} disabled={scanning} aria-label="Saisie de la recette">
   <!-- Identité -->
   <section class="card">
     <div class="h-eyebrow mb-5">— Identité de la recette</div>
@@ -337,7 +322,7 @@
           id="title"
           name="title"
           required
-          value={recipe.title}
+          bind:value={fields.title}
           placeholder="Pasta alla carbonara…"
         />
       </div>
@@ -345,18 +330,18 @@
       <div class="grid sm:grid-cols-[1fr_140px] gap-4">
         <div>
           <label class="label" for="description">Description courte</label>
-          <input class="input italic" id="description" name="description" value={recipe.description ?? ''} placeholder="ex. Recette de la nonna" />
+          <input class="input italic" id="description" name="description" bind:value={fields.description} placeholder="ex. Recette de la nonna" />
         </div>
         <div>
           <label class="label" for="servings">Personnes de référence</label>
-          <input class="input font-display text-center text-xl" id="servings" name="servings" type="number" min="1" max="50" required value={recipe.servings ?? 2} />
+          <input class="input font-display text-center text-xl" id="servings" name="servings" type="number" min="1" max="50" required bind:value={fields.servings} />
           <p class="text-xs text-sepia mt-1">Quantités pour ce nombre de personnes. Tu pourras l’adapter à chaque repas dans la semaine.</p>
         </div>
       </div>
 
       <div>
         <label class="label" for="owner">Recette de</label>
-        <input class="input italic" id="owner" name="owner" value={recipe.owner ?? ''} placeholder="ex. Mamie, Vincent…" />
+        <input class="input italic" id="owner" name="owner" bind:value={fields.owner} placeholder="ex. Mamie, Vincent…" />
       </div>
 
       <div>
@@ -368,7 +353,7 @@
           <label class="btn-secondary cursor-pointer">Choisir dans la galerie
             <input class="sr-only" bind:this={photoInput} id="photo" name="photo" type="file" accept="image/*" disabled={compressing} onchange={onPhotoChange} />
           </label>
-          <button type="button" class="btn-secondary" disabled={compressing} onclick={() => { imageSearchOpen = !imageSearchOpen; imageQuery ??= formElement.elements.namedItem('title').value; }}>Rechercher une image</button>
+          <button type="button" class="btn-secondary" disabled={compressing} onclick={() => { imageSearchOpen = !imageSearchOpen; imageQuery ??= fields.title; }}>Rechercher une image</button>
         </div>
         <input type="hidden" name="photo_commons_id" value={selectedImage?.pageId ?? ''} />
         {#if photoPreview || selectedImage}
@@ -466,36 +451,16 @@
       class="input min-h-[260px] font-sans leading-relaxed"
       id="instructions"
       name="instructions"
+      bind:value={fields.instructions}
       placeholder="Step 1. Faire bouillir l'eau salée…&#10;Step 2. Pendant ce temps…"
-    >{recipe.instructions ?? ''}</textarea>
+    ></textarea>
   </section>
 
   </fieldset>
-  {#if reviewingCategories}
-    <section class="card space-y-5" bind:this={categorySection}>
-      <h2 class="h-eyebrow">Vérifier les rayons</h2>
-      <p class="text-sm text-sepia">Vérifie le rayon de chaque ingrédient avant d’enregistrer. Les rayons validés sont mémorisés dans le catalogue commun pour les prochaines recettes.</p>
-      <p class="text-sm text-sepia">Choisis un rayon existant ou saisis un nouveau nom (80 caractères maximum).</p>
-      <div aria-live="polite">
-        {#if suggestingCategories}<p class="text-mare">Recherche des rayons…</p>{/if}
-        {#if categoryError}<p role="alert" class="text-terra">{categoryError}</p>{/if}
-      </div>
-      {#each items as item, idx}
-        {#if item.name.trim()}
-          <div class="grid sm:grid-cols-2 gap-2 items-center">
-            <label class="label" for={`category-${idx}`}>{item.name}</label>
-            <Combobox id={`category-${idx}`} options={availableCategories} showAllOnFocus placeholder="Choisir ou créer un rayon" disabled={suggestingCategories} bind:value={item.category} onselect={(category) => chooseCategory(item, category)} />
-          </div>
-        {/if}
-      {/each}
-    </section>
-  {/if}
-
   <div class="flex flex-wrap gap-3 justify-end">
-    {#if reviewingCategories}<button type="button" class="btn-secondary" disabled={suggestingCategories} onclick={() => reviewingCategories = false}>Retour à la recette</button>{/if}
     <a href={cancelHref} class="btn-secondary">Annuler</a>
-    <button type="submit" class="btn-primary btn-lg" disabled={compressing || scanning || suggestingCategories}>
-      {compressing ? 'Optimisation…' : reviewingCategories ? submitLabel : 'Continuer : vérifier les rayons'}
+    <button type="submit" class="btn-primary btn-lg" disabled={compressing || scanning || preparingSave}>
+      {compressing ? 'Optimisation…' : preparingSave ? 'Enregistrement…' : submitLabel}
     </button>
   </div>
 </form>
