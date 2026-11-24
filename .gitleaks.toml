@@ -1,0 +1,16 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "literal-password-or-secret"
+description = "Mot de passe ou secret littéral"
+regex = '''(?i)(?:^|[^[:alnum:]_:/-])(?:password|passwd|pwd|secret|BANANANI_PASSWORD|ADMIN_PASSWORD|SESSION_SECRET|MISTRAL_API_KEY|FLY_API_TOKEN)\b["'`]?\s*[:=]\s*(?:(?:process\.env|env)\.[A-Z0-9_]+\s*(?:\|\||\?\?)\s*)?["'`]([^"'`$\r\n]{4,})["'`]'''
+secretGroup = 1
+keywords = ["password", "passwd", "pwd", "secret", "mistral_api_key", "fly_api_token"]
+
+[[rules]]
+id = "bananani-dotenv-secret"
+description = "Secret Bananani en clair dans un fichier de configuration"
+regex = '''(?im)^\s*(?:export\s+)?(?:BANANANI_PASSWORD|ADMIN_PASSWORD|SESSION_SECRET|MISTRAL_API_KEY|FLY_API_TOKEN)\s*=\s*([^"'`$\s#]+)'''
+secretGroup = 1
+keywords = ["bananani_password", "admin_password", "session_secret", "mistral_api_key", "fly_api_token"]

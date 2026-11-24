@@ -5,6 +5,7 @@ node_modules
 .env
 .env.*
 !.env.example
+/.gitleaks-bin/
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 

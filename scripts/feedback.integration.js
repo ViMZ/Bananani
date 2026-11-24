@@ -8,7 +8,7 @@ import { join, resolve, sep } from 'node:path';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { pathToFileURL } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 60000 }, async (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'bananani-http-'));
@@ -20,7 +20,7 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
     ({ db } = await import('../src/lib/server/db/index.js'));
     const { createUser } = await import('../src/lib/server/users.js');
     const { hashPassword } = await import('../src/lib/server/auth.js');
-    const password = 'local-test-only';
+    const password = randomBytes(24).toString('base64url');
     await createUser('feedback', hashPassword(password));
     await createUser('other', hashPassword(password));
     // Let the OS allocate a free loopback port.
@@ -30,7 +30,7 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
     const port = probe.address().port;
     await new Promise(resolve => probe.close(resolve));
     const origin = `http://127.0.0.1:${port}`;
-    server = spawn(process.execPath, ['--import', pathToFileURL(resolve('scripts/fixtures/mistral-preload.js')).href, 'build/index.js'], { env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), ORIGIN: origin, MISTRAL_API_KEY: 'http-test-only' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    server = spawn(process.execPath, ['--import', pathToFileURL(resolve('scripts/fixtures/mistral-preload.js')).href, 'build/index.js'], { env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), ORIGIN: origin, MISTRAL_API_KEY: randomUUID() }, stdio: ['ignore', 'pipe', 'pipe'] });
     server.stdout.on('data', data => { logs += data; });
     server.stderr.on('data', data => { logs += data; });
     let ready = false;

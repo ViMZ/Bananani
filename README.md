@@ -25,6 +25,19 @@ npm run preview      # preview du build
   du HTTPS (donc OK en prod Fly, pas en HTTP local depuis le tel). En dépannage, on
   peut toujours taper le code à la main sur `/scan`.
 
+## Protection des secrets
+
+Conserver les mots de passe et les clés dans les variables d’environnement ou
+dans le gestionnaire de secrets Fly.io. Les fichiers `.env` locaux sont ignorés
+par Git.
+
+Pour chaque clone, installer [Gitleaks](https://github.com/gitleaks/gitleaks/releases)
+dans le `PATH` ou placer le binaire dans `.gitleaks-bin/`, puis activer les hooks
+du dépôt avec `git config --local core.hooksPath .githooks`. Ils analysent les
+changements indexés avant le commit et les commits avant le push. GitHub Actions
+analyse aussi les pull requests et les pushs sur `main`. Un secret détecté bloque
+le déploiement automatique.
+
 ## Hébergement : Fly.io
 
 ### Recettes, portions et courses

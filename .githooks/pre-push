@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+while read -r local_ref local_oid remote_ref remote_oid; do
+  # Une suppression de ref ne publie aucun commit.
+  case "$local_oid" in *[!0]*) ;; *) continue ;; esac
+  case "$remote_oid" in
+    *[!0]*) range="$remote_oid..$local_oid" ;;
+    *) range="$local_oid --not --remotes=$1" ;;
+  esac
+  sh "$(dirname "$0")/scan-secrets" --log-opts="$range" . </dev/null
+done

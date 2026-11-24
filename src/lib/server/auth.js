@@ -11,7 +11,7 @@ import { getUserById, getUserByUsername } from './users.js';
  *   l'utilisateur en base pour récupérer son hash courant.
  */
 
-const SECRET = process.env.SESSION_SECRET || 'bananani-dev-insecure-secret';
+const SECRET = process.env.SESSION_SECRET || randomBytes(32);
 export const SESSION_COOKIE = 'bananani_session';
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 jours
 
