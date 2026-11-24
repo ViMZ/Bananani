@@ -11,7 +11,7 @@
 <div class="min-h-[60vh] flex items-center justify-center px-4">
   <div class="w-full max-w-md">
     <header class="text-center mb-10">
-      <img src="/bananani-mascot.webp" alt="" width="96" height="96" class="mx-auto mb-3 h-20 w-20 md:h-24 md:w-24" />
+      <img src="/bananani-mascot.webp?v=3" alt="" width="96" height="96" class="mx-auto mb-3 h-20 w-20 md:h-24 md:w-24" />
       <div class="h-eyebrow mb-2">Bananani</div>
       <h1 class="h-display text-5xl md:text-6xl italic">Benvenuto</h1>
       <p class="text-sepia italic mt-3">Connecte-toi pour accéder à ta cucina.</p>
