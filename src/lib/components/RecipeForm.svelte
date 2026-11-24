@@ -7,6 +7,7 @@
   import PhotoCredit from '$lib/components/PhotoCredit.svelte';
   import RecipeImageSearch from '$lib/components/RecipeImageSearch.svelte';
   import { importRecipe } from '$lib/recipes/import.js';
+  import { MAX_CAPTURES, MAX_CAPTURE_BYTES, MAX_RECIPE_URL_LENGTH } from '$lib/recipes/import-limits.js';
   import { MAX_PHOTO_BYTES, MAX_PHOTO_MB, maybeCompress } from '$lib/recipes/photo';
 
   let {
@@ -30,52 +31,88 @@
   let scanError = $state('');
   let scanResult = $state(null);
   let scanApplied = $state(false);
-  let scanFile = $state(null);
+  let scanCaptures = $state.raw([]);
+  let recipeUrl = $state('');
+  let linkError = $state('');
+  let scanType = $state('captures');
   let scanPreparing = $state(false);
-  let scanInfo = $state('');
   let scanWarnings = $state([]);
   let scanUseOriginal = $state(false);
   let scanSuggestedFields = $state([]);
-  let scanRequestId = '';
+  let lastImport;
   let scanPhase = $state('upload');
   let scanPreview = $derived(scanUseOriginal && scanResult?.original ? scanResult.original : scanResult);
   const suggestionLabels = { title: 'titre', description: 'description', owner: 'auteur', servings: 'personnes',
     name: 'nom', quantity: 'quantité', unit: 'unité', notes: 'notes', brand: 'marque', productReference: 'référence' };
   let preparingSave = $state(false);
 
-  async function scan() {
-    if (!scanFile || scanning) return;
+  async function scan(source) {
+    if (!source.length || scanning || preparingSave) return;
+    const link = typeof source === 'string';
+    scanType = link ? 'link' : 'captures';
     scanning = true;
-    scanError = '';
-    scanResult = null;
-    scanInfo = '';
-    scanUseOriginal = false;
-    scanPhase = 'upload';
+    scanPhase = link ? 'link' : 'upload';
+    if (link) linkError = '';
+    else scanError = '';
+    if (lastImport?.source !== source) lastImport = { source, id: crypto.randomUUID() };
     try {
-      scanPreparing = true;
-      // Plus de résolution que pour une photo de plat : préserver les petits caractères.
-      const image = await maybeCompress(scanFile, 3000, 0.9);
-      scanPreparing = false;
-      if (image.size > 10 * 1024 * 1024) throw new Error('Cette photo reste trop volumineuse après optimisation. Essaie une photo plus rapprochée de la recette ou une image JPEG.');
-      if (image !== scanFile) scanInfo = `Photo optimisée : ${(scanFile.size / 1024 / 1024).toFixed(1)} Mo → ${(image.size / 1024 / 1024).toFixed(1)} Mo`;
-      scanResult = await importRecipe(image, { id: scanRequestId, onPhase: phase => { scanPhase = phase; } });
+      let payload = source;
+      if (!link) {
+        scanPreparing = true;
+        payload = [];
+        for (const { file } of source) {
+          const image = await maybeCompress(file, 3000, 0.9, source.length > 1);
+          if (source.length > 1 && image.type !== 'image/jpeg') throw new Error('Une capture est illisible. Retire-la ou choisis une autre image.');
+          payload.push(image);
+        }
+        scanPreparing = false;
+        if (payload.reduce((size, image) => size + image.size, 0) > MAX_CAPTURE_BYTES) {
+          throw new Error('Les images dépassent 10 Mo après optimisation. Choisis des captures plus légères ou mieux cadrées.');
+        }
+      }
+      const result = await importRecipe(payload, { id: lastImport.id, onPhase: phase => { scanPhase = phase; } });
+      linkError = '';
+      scanError = '';
+      scanUseOriginal = false;
+      scanResult = result;
       applyScan();
     } catch (err) {
-      if (err?.restartImport) scanRequestId = crypto.randomUUID();
-      scanError = err?.name === 'TypeError' ? 'Impossible de lire ou d’envoyer cette photo. Réessaie ; ta saisie est conservée.'
-        : err instanceof Error ? err.message : 'L’import a échoué. Réessaie ; ta saisie est conservée.';
-    } finally { scanning = false; scanPreparing = false; }
+      if (err?.restartImport) lastImport = null;
+      const message = err instanceof Error && err.name !== 'TypeError' ? err.message
+        : 'L’import a échoué. Réessaie ; ta saisie est conservée.';
+      if (link) linkError = message;
+      else scanError = message;
+    } finally {
+      scanning = false;
+      scanPreparing = false;
+    }
   }
 
-  async function onScanChange(event) {
-    const file = event.currentTarget.files?.[0];
-    if (!file || scanning) return;
-    scanFile = file;
-    scanRequestId = crypto.randomUUID();
-    scanApplied = false;
-    scanWarnings = [];
-    scanSuggestedFields = [];
-    await scan();
+  function onScanChange(event) {
+    const input = event.currentTarget;
+    const files = Array.from(input.files || []);
+    input.value = '';
+    if (!files.length || scanning) return;
+    if (scanCaptures.length + files.length > MAX_CAPTURES) {
+      scanError = `Choisis au maximum ${MAX_CAPTURES} images par recette.`;
+      return;
+    }
+    scanError = '';
+    scanCaptures = [...scanCaptures, ...files.map(file => ({ file, preview: URL.createObjectURL(file) }))];
+  }
+
+  function moveCapture(index, offset) {
+    const destination = index + offset;
+    const captures = [...scanCaptures];
+    [captures[index], captures[destination]] = [captures[destination], captures[index]];
+    scanCaptures = captures;
+    scanError = '';
+  }
+
+  function removeCapture(index) {
+    URL.revokeObjectURL(scanCaptures[index].preview);
+    scanCaptures = scanCaptures.filter((_, position) => position !== index);
+    scanError = '';
   }
 
   function applyScan() {
@@ -184,7 +221,10 @@
     if (photoPreview) URL.revokeObjectURL(photoPreview);
     photoPreview = '';
   }
-  onDestroy(clearPreview);
+  onDestroy(() => {
+    clearPreview();
+    for (const capture of scanCaptures) URL.revokeObjectURL(capture.preview);
+  });
 
   function chooseImage(image) {
     clearPreview();
@@ -248,28 +288,68 @@
 
 {#if allowScan}
   <section id="import-scan" class="card mb-8 space-y-4" inert={preparingSave}>
-    <h2 class="h-eyebrow">Scanner une recette papier</h2>
-    <p class="text-sm text-sepia">Photographie une fiche personnelle, une page de livre ou une recette manuscrite, ou importe une image. Aucun code Bananani n’est nécessaire. Un titre et une liste d’ingrédients suffisent, même sans quantités ni étapes.</p>
-    <p class="text-sm text-sepia">Choisis une image ou prends une photo : le texte sera lu par Mistral, puis la recette sera vérifiée et préremplie automatiquement. Tu pourras corriger les quantités, les portions et les étapes avant d’enregistrer.</p>
-    <p class="text-xs text-sepia">Cadre la fiche de près, à plat, sans reflet et avec le texte net. Les estimations et ajustements seront signalés pour être vérifiés.</p>
-    <div class="flex flex-wrap gap-3">
-      <label class="btn-secondary cursor-pointer">
-        Prendre une photo
-        <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" disabled={scanning} onchange={onScanChange} />
-      </label>
-      <label class="btn-secondary cursor-pointer">
-        Choisir une image
-        <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={scanning} onchange={onScanChange} />
-      </label>
+    <h2 class="h-eyebrow">Importer une recette</h2>
+    <form class="space-y-2" onsubmit={(event) => { event.preventDefault(); void scan(recipeUrl.trim()); }}>
+      <label class="label" for="recipe-import-url">Lien de la recette</label>
+      <div class="flex flex-wrap gap-2">
+        <input id="recipe-import-url" class="input flex-1 min-w-0 basis-52" type="url" bind:value={recipeUrl}
+          placeholder="https://…" maxlength={MAX_RECIPE_URL_LENGTH} disabled={scanning} aria-invalid={!!linkError}
+          aria-describedby={linkError ? 'recipe-link-error' : undefined} oninput={() => { linkError = ''; }} required />
+        <button type="submit" class="btn-secondary" disabled={scanning || !recipeUrl.trim()}>Importer le lien</button>
+      </div>
+      {#if linkError}<p id="recipe-link-error" role="alert" class="text-sm text-terra">{linkError}</p>{/if}
+    </form>
+
+    <div class="border-t border-umber/15 pt-4 space-y-3">
+      <h3 class="font-medium">Captures ou photos</h3>
+      <p class="text-sm text-sepia">Photographie une fiche personnelle ou ajoute jusqu’à {MAX_CAPTURES} captures. Place les images dans l’ordre de lecture, du haut vers le bas.</p>
+      <div class="flex flex-wrap gap-2">
+        <label class="btn-secondary cursor-pointer">
+          Prendre une photo
+          <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"
+            disabled={scanning || scanCaptures.length >= MAX_CAPTURES} onchange={onScanChange} />
+        </label>
+        <label class="btn-secondary cursor-pointer">
+          Ajouter des images
+          <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple
+            disabled={scanning || scanCaptures.length >= MAX_CAPTURES} onchange={onScanChange} />
+        </label>
+      </div>
+      {#if scanCaptures.length}
+        <ol class="space-y-2">
+          {#each scanCaptures as capture, index (capture.preview)}
+            <li class="flex flex-wrap items-center gap-2 rounded bg-linen p-2">
+              <img class="size-12 rounded object-contain" src={capture.preview} alt="" />
+              <span class="flex-1 break-all text-sm min-w-[6rem]">{index + 1}. {capture.file.name}</span>
+              <div class="flex gap-1">
+                <button type="button" class="btn-secondary btn-sm" disabled={scanning || index === 0}
+                  aria-label={`Monter l’image ${index + 1}`} onclick={() => moveCapture(index, -1)}>↑</button>
+                <button type="button" class="btn-secondary btn-sm" disabled={scanning || index === scanCaptures.length - 1}
+                  aria-label={`Descendre l’image ${index + 1}`} onclick={() => moveCapture(index, 1)}>↓</button>
+                <button type="button" class="btn-ghost btn-sm" disabled={scanning}
+                  aria-label={`Retirer l’image ${index + 1}`} onclick={() => removeCapture(index)}>Retirer</button>
+              </div>
+            </li>
+          {/each}
+        </ol>
+        <button type="button" class="btn-secondary" disabled={scanning} onclick={() => scan(scanCaptures)}>
+          {scanCaptures.length === 1 ? 'Importer l’image' : `Importer les ${scanCaptures.length} images`}
+        </button>
+      {/if}
+      {#if scanError}<p role="alert" class="text-sm text-terra">{scanError}</p>{/if}
     </div>
-    <p class="text-xs text-sepia">Une page · JPEG, PNG ou WebP · photos automatiquement optimisées · photo nette et bien éclairée</p>
-    {#if scanFile}<p class="text-sm break-all">{scanFile.name}</p>{/if}
     <div aria-live="polite" aria-busy={scanning}>
-      {#if scanning}<p class="text-sm text-mare">{scanPreparing ? 'Préparation de la photo…' : scanPhase === 'upload' ? 'Envoi de la photo…' : scanPhase === 'review' ? 'Texte lu. Vérification et préremplissage de la recette…' : scanPhase === 'reconnecting' ? 'Connexion interrompue. Reprise de l’import…' : 'Lecture du texte de la recette…'}</p>{/if}
-      {#if scanInfo}<p class="text-sm text-mare">{scanInfo}</p>{/if}
-      {#if scanError}<p role="alert" class="text-terra mt-3">{scanError}</p>{/if}
-      {#if scanError && scanFile && !scanning}<button type="button" class="btn-secondary mt-3" onclick={scan}>Réessayer l’import</button>{/if}
-      {#if scanApplied}<p class="text-sm text-mare mt-3">Recette préremplie. Vérifie les quantités, les unités et les portions, puis clique sur « Créer la recette ».</p>{/if}
+      {#if scanning}
+        <p class="text-sm text-mare">
+          {scanPhase === 'reconnecting' ? 'Connexion interrompue. Reprise de l’import…'
+            : scanType === 'link' ? 'Lecture de la page de la recette…'
+            : scanPreparing ? 'Préparation des images…'
+            : scanPhase === 'upload' ? 'Envoi des images…'
+            : scanPhase === 'review' ? 'Texte lu. Vérification et préremplissage de la recette…'
+            : 'Lecture du texte de la recette…'}
+        </p>
+      {/if}
+      {#if scanApplied}<p class="text-sm text-mare mt-3">Recette préremplie. Vérifie les ingrédients, les portions et les étapes, puis clique sur « Créer la recette ».</p>{/if}
       {#if scanApplied}{#each scanWarnings as warning}<p class="text-sm text-sepia mt-2">{warning}</p>{/each}{/if}
       {#if scanApplied && scanSuggestedFields.length}<p class="text-sm text-sepia mt-2">Champs complétés ou ajustés à relire : {scanSuggestedFields.map(f => suggestionLabels[f]).join(', ')}.</p>{/if}
     </div>

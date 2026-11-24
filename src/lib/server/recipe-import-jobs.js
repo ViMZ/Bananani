@@ -17,7 +17,7 @@ export function createImportJobs({ now = Date.now, ttlMs = 10 * 60 * 1000, maxEn
     prune();
     return [...jobs.values()].filter(job => job.status === 'processing').length < maxActive;
   }
-  function start(userId, id, work) {
+  function start(userId, id, work, phase = 'ocr') {
     const existing = get(userId, id);
     if (existing) return existing;
     if (!canStart()) throw new Error('Un import est déjà en cours. Réessaie dans quelques instants.');
@@ -25,7 +25,7 @@ export function createImportJobs({ now = Date.now, ttlMs = 10 * 60 * 1000, maxEn
       const oldest = [...jobs].find(([, job]) => job.status !== 'processing');
       if (oldest) jobs.delete(oldest[0]);
     }
-    const job = { status: 'processing', phase: 'ocr', finishedAt: null };
+    const job = { status: 'processing', phase, finishedAt: null };
     jobs.set(key(userId, id), job);
     Promise.resolve().then(() => work(phase => {
       if (phase === 'ocr' || phase === 'review') job.phase = phase;

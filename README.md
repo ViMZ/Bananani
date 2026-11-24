@@ -87,11 +87,17 @@ rangés dans « Autres ». Limites : 100 ingrédients par requête, 30 appels pa
 utilisateur et par heure en mémoire, délai de 20 s côté serveur.
 Tests : `node --test scripts/ingredient-categories.test.js`.
 
-### Importer une recette papier
+### Importer une recette en ligne ou sur papier
 
-Dans « Nouvelle recette », prendre une photo ou choisir une image JPEG, PNG ou
-WebP (une page). L’OCR, la relecture et le préremplissage se lancent automatiquement,
-sans bouton d’analyse ni validation intermédiaire. Les photos sont automatiquement réduites
+Dans « Nouvelle recette », coller l’adresse d’une recette publique puis cliquer sur
+« Importer le lien ». Bananani préremplit la fiche à partir des données de recette
+publiées par le site. Si la page est inaccessible ou la fiche incomplète, utiliser
+« Ajouter des images ».
+
+Les photos et captures JPEG, PNG ou WebP peuvent être ajoutées une à une ou en lot.
+Il est possible d’en réordonner jusqu’à six avant de cliquer sur « Importer les images ».
+Les images sont lues dans cet ordre pour préremplir une seule recette. Le total est
+limité à 10 Mo après optimisation. Les photos sont automatiquement réduites
 à 3 000 pixels sur le grand côté et compressées en JPEG si cela les allège, avant
 de vérifier la limite d’envoi de 10 Mo. Relire le formulaire prérempli avant
 l’enregistrement. Les images sont transmises à

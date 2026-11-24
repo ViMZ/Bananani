@@ -1,10 +1,22 @@
 // Isolated HTTP tests only: this module is explicitly preloaded by the test process.
+import { PDFDocument } from 'pdf-lib';
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, options) => {
   const target = String(url);
   if (!target.startsWith('https://api.mistral.ai/')) return originalFetch(url, options);
   const request = JSON.parse(options.body);
   if (target.endsWith('/ocr')) {
+    if (request.document.type === 'document_url') {
+      const bytes = Buffer.from(request.document.document_url.split(',')[1], 'base64');
+      const pdf = await PDFDocument.load(bytes);
+      if (pdf.getPageCount() !== 2) throw new Error('Expected two captures in one document');
+      const instructions = '1. Préparer la sauce.\n2. Cuire les pâtes et mélanger.';
+      return Response.json({
+        document_annotation: { isRecipe: true, title: 'Pâtes à la tomate', description: '', owner: '', servings: 4, instructions,
+          ingredients: [{ name: 'Pâtes', quantity: 320, unit: 'g', notes: '' }, { name: 'Tomates', quantity: 600, unit: 'g', notes: '' }] },
+        pages: [{ markdown: 'Pâtes à la tomate\n320 g de pâtes\n600 g de tomates' }, { markdown: instructions }]
+      });
+    }
     const bytes = Buffer.from(request.document.image_url.split(',')[1], 'base64');
     const slow = bytes.includes(Buffer.from('slow-import'));
     if (slow) await new Promise(resolve => setTimeout(resolve, 80));

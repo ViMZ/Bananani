@@ -222,6 +222,8 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.match(html, /Choisir dans la galerie/);
       assert.match(html, /Rechercher une image/);
       assert.match(html, /fiche personnelle/);
+      assert.match(html, /Importer le lien/);
+      assert.match(html, /Ajouter des images/);
       assert.equal((await post('/recipes/ocr', {})).status, 400);
     });
 
@@ -246,6 +248,20 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
           assert.match(result.review.changes.join(' '), /Retrait proposé/);
         }
       }
+    });
+
+    await t.test('imports an ordered set of captures as a single recipe', async () => {
+      const jpeg = Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAAHAAkBAREA/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAA/AL+P/9k=', 'base64');
+      const data = new FormData();
+      data.append('image', new File([jpeg], 'ingredients.jpg', { type: 'image/jpeg' }));
+      data.append('image', new File([jpeg], 'preparation.jpg', { type: 'image/jpeg' }));
+      const response = await fetch(`${origin}/recipes/ocr`, { method: 'POST', headers: { Cookie: cookie, Origin: origin }, body: data });
+      assert.equal(response.status, 200);
+      const result = await response.json();
+      assert.equal(result.recipe.title, 'Pâtes à la tomate');
+      assert.equal(result.recipe.instructions, '1. Préparer la sauce.\n2. Cuire les pâtes et mélanger.');
+      assert.equal(result.ingredients.length, 2);
+      assert.match(result.ocrText, /600 g de tomates\n\n1. Préparer/);
     });
 
     await t.test('async OCR imports are resumable, isolated and do not run duplicate analyses', async () => {

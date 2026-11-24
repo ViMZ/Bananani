@@ -9,7 +9,7 @@ const COMPRESSIBLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
  * Renvoie une version optimisée (JPEG redimensionné) si utile, sinon le fichier tel quel.
  * @param {File} file
  */
-export async function maybeCompress(file, maxDimension = MAX_DIM, quality = JPEG_QUALITY) {
+export async function maybeCompress(file, maxDimension = MAX_DIM, quality = JPEG_QUALITY, requireJpeg = false) {
   if (!COMPRESSIBLE.has(file.type)) return file; // gif animé, etc. → inchangé
   let bitmap;
   try {
@@ -36,7 +36,8 @@ export async function maybeCompress(file, maxDimension = MAX_DIM, quality = JPEG
   }
   const { width, height } = bitmap;
   const scale = Math.min(1, maxDimension / Math.max(width, height));
-  if (scale === 1 && file.size <= COMPRESS_IF_OVER_BYTES) {
+  const needsConversion = requireJpeg && file.type !== 'image/jpeg';
+  if (scale === 1 && file.size <= COMPRESS_IF_OVER_BYTES && !needsConversion) {
     bitmap.close?.();
     return file; // déjà petite et légère : inutile de recompresser (évite une perte de qualité)
   }
@@ -51,7 +52,7 @@ export async function maybeCompress(file, maxDimension = MAX_DIM, quality = JPEG
   ctx.drawImage(bitmap, 0, 0, w, h);
   bitmap.close?.();
   const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
-  if (!blob || blob.size >= file.size) return file; // pas plus léger → garder l'original
+  if (!blob || (!needsConversion && blob.size >= file.size)) return file; // pas plus léger → garder l'original
   const base = (file.name || 'photo').replace(/\.[^.]+$/, '');
   return new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
 }

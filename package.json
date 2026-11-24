@@ -34,7 +34,11 @@
     "@zxing/library": "^0.21.3",
     "better-sqlite3": "^11.5.0",
     "drizzle-orm": "^0.36.0",
+    "encoding-sniffer": "0.2.1",
+    "htmlparser2": "10.1.0",
+    "ipaddr.js": "2.3.0",
     "nanoid": "^5.0.8",
+    "pdf-lib": "1.17.1",
     "qrcode": "^1.5.4",
     "svelte-dnd-action": "^0.9.78"
   }
