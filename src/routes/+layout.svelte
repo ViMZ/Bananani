@@ -5,6 +5,7 @@
   let { children, data } = $props();
 
   let userLabel = $derived(data?.user ? data.user.displayName || data.user.username : '');
+  let headerHeight = $state(64);
 
   const nav = [
     { href: '/', label: 'Accueil' },
@@ -63,10 +64,10 @@
   );
 </script>
 
-<div class="app-shell min-h-screen flex flex-col {isAuthPage ? '' : 'pb-20 md:pb-0'}">
+<div class="app-shell min-h-screen flex flex-col {isAuthPage ? '' : 'pb-20 md:pb-0'}" style:--app-header-height={`${headerHeight}px`}>
   {#if !isAuthPage}
     <!-- Header desktop -->
-    <header class="no-print bg-linen/80 backdrop-blur-sm border-b border-umber/15 sticky top-0 z-30">
+    <header class="no-print bg-linen/80 backdrop-blur-sm border-b border-umber/15 sticky top-0 z-30" bind:offsetHeight={headerHeight}>
       <div class="max-w-6xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-6">
         <button
           type="button"
@@ -124,7 +125,9 @@
     </header>
   {/if}
 
-  <main class="flex-1 max-w-6xl w-full mx-auto px-4 md:px-8 py-10 md:py-16">
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 md:px-8 {$page.url.pathname === '/shopping'
+    ? 'pt-2 pb-10 md:pt-3 md:pb-16'
+    : 'py-10 md:py-16'}">
     {@render children()}
   </main>
 

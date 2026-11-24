@@ -24,9 +24,6 @@
   // Vue par ingrédient : agrégation + addition, groupée par rayon de magasin.
   let byCategory = $derived(groupByCategory(aggregateItems(data.items)));
 
-  let pending = $derived(data.items.filter((i) => !i.checked).length);
-  let done = $derived(data.items.filter((i) => i.checked).length);
-
   // Ajout manuel : bouton → modale.
   let addModalOpen = $state(false);
   let nameInput = $state(null);
@@ -35,37 +32,94 @@
   });
 </script>
 
-<header class="text-center mb-12">
-  <div class="h-eyebrow mb-2">Liste de courses</div>
-  <h1 class="h-display text-5xl md:text-6xl italic">Courses</h1>
-  <p class="text-sepia mt-3 italic">
-    <span class="font-display text-mare not-italic">{pending}</span> à acheter
-    <span class="text-sepia/50 mx-2">·</span>
-    <span class="font-display text-oliva not-italic">{done}</span> dans le panier
-  </p>
-</header>
-
-<div class="flex justify-center mb-6 no-print">
-  <div class="inline-flex rounded-full border border-umber/20 bg-panna p-1 text-sm">
-    <button
-      class="px-4 py-1.5 rounded-full transition-colors {viewMode === 'ingredient' ? 'bg-mare text-panna shadow-soft' : 'text-sepia hover:text-mare'}"
-      onclick={() => setView('ingredient')}
-    >Par ingrédient</button>
-    <button
-      class="px-4 py-1.5 rounded-full transition-colors {viewMode === 'recipe' ? 'bg-mare text-panna shadow-soft' : 'text-sepia hover:text-mare'}"
-      onclick={() => setView('recipe')}
-    >Par recette</button>
-  </div>
-</div>
-
-<div class="flex flex-wrap justify-center gap-2 mb-10 no-print">
-  <button type="button" class="btn-secondary" onclick={() => (addModalOpen = true)}>＋ Ajouter à la main</button>
-  <a href="/shopping/print?view={viewMode}" class="btn-secondary">🍋 Imprimer la liste</a>
-  {#if data.items.length > 0}
-    <form method="POST" action="?/clearAll" use:enhance>
-      <button class="btn-ghost text-terra hover:bg-terra/10">Tout vider</button>
+{#snippet shoppingItem({ ids, name, checked, quantity, recipeCount = 0 }, details)}
+  <li
+    class="flex items-start gap-2 rounded border border-l-4 px-2 py-1 transition-colors {checked
+      ? 'border-oliva/50 border-l-oliva bg-oliva-soft/60'
+      : 'border-umber/15 bg-panna hover:border-umber/30'}"
+  >
+    <form method="POST" action="?/remove" use:enhance class="shrink-0">
+      <input type="hidden" name="ids" value={ids.join(',')} />
+      <button class="flex h-11 w-7 items-center justify-center text-sepia transition-colors hover:text-terra" aria-label={`Exclure ${name} de la liste`}>
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+        </svg>
+      </button>
     </form>
-  {/if}
+
+    <div class="min-w-0 flex-1 py-2.5">
+      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <span class="font-sans text-[15px] break-words min-w-0 {checked
+          ? 'font-medium text-umber/80 line-through decoration-2'
+          : 'font-semibold text-umber'}">{name}</span>
+        {#if quantity}
+          <span class="font-display text-base text-umber/80">{quantity}</span>
+        {/if}
+        {#if recipeCount > 1}
+          <span class="font-mono text-[10px] uppercase tracking-wider text-mare bg-mare-soft/30 rounded-full px-2 py-0.5">
+            ×{recipeCount} recettes
+          </span>
+        {/if}
+      </div>
+      {@render details()}
+    </div>
+
+    <form method="POST" action="?/toggle" use:enhance class="shrink-0">
+      <input type="hidden" name="ids" value={ids.join(',')} />
+      <input type="hidden" name="checked" value={checked ? '0' : '1'} />
+      <button
+        type="submit"
+        class="group flex size-11 items-center justify-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-mare"
+        role="checkbox" aria-checked={checked} aria-label={`${name} dans le panier`}
+      >
+        <span class="flex size-7 items-center justify-center rounded border-2 transition-colors {checked
+          ? 'border-[#566131] bg-[#566131] text-panna'
+          : 'border-umber/60 bg-panna group-hover:border-mare group-hover:bg-mare-soft/30'}" aria-hidden="true">
+          {#if checked}
+            <svg class="size-4" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 6 L5 9 L10 3" />
+            </svg>
+          {/if}
+        </span>
+      </button>
+    </form>
+  </li>
+{/snippet}
+
+<h1 class="h-display text-center text-3xl italic md:text-4xl">Courses</h1>
+
+<div class="no-print sticky top-[var(--app-header-height)] z-20 -mx-4 mb-2 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 border-b border-umber/15 bg-linen px-2 py-1 md:-mx-8 md:px-8">
+  <div class="inline-flex rounded-full border border-umber/20 bg-panna p-0.5 text-xs font-medium" role="group" aria-label="Regrouper les courses">
+    <button
+      type="button"
+      class="h-7 rounded-full px-2 transition-colors {viewMode === 'ingredient' ? 'bg-mare text-panna' : 'text-umber hover:text-mare'}"
+      aria-pressed={viewMode === 'ingredient'}
+      onclick={() => setView('ingredient')}
+    >Ingrédient</button>
+    <button
+      type="button"
+      class="h-7 rounded-full px-2 transition-colors {viewMode === 'recipe' ? 'bg-mare text-panna' : 'text-umber hover:text-mare'}"
+      aria-pressed={viewMode === 'recipe'}
+      onclick={() => setView('recipe')}
+    >Recette</button>
+  </div>
+
+  <div class="flex items-center gap-1">
+    <button type="button" class="btn-primary h-8 whitespace-nowrap px-2 py-0 text-xs" onclick={() => (addModalOpen = true)}>+ Ajouter</button>
+    <a href="/shopping/print?view={viewMode}" class="btn-secondary size-8 p-0" aria-label="Imprimer la liste" title="Imprimer la liste">
+      <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 9V3h12v6M6 18H3V9h18v9h-3M17 12h1" />
+        <path d="M6 14h12v7H6z" />
+      </svg>
+    </a>
+    <form method="POST" action="?/clearAll" use:enhance>
+      <button type="submit" class="btn-secondary size-8 p-0 text-terra disabled:opacity-50" aria-label="Vider la liste" title="Vider la liste" disabled={data.items.length === 0}>
+        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6m4-6v6" />
+        </svg>
+      </button>
+    </form>
+  </div>
 </div>
 
 {#if data.items.length === 0}
@@ -82,68 +136,33 @@
   <div class="space-y-10">
     {#each byCategory as [categoryName, groups]}
       <section>
-        <div class="flex items-baseline gap-4 mb-4">
+        <div class="flex items-baseline gap-4 mb-2">
           <h2 class="h-display italic text-2xl text-mare">{categoryName}</h2>
           <span class="flex-1 h-px bg-mare/30"></span>
           <span class="h-eyebrow text-mare">{groups.length}</span>
         </div>
         <ul class="space-y-2">
           {#each groups as group (group.key)}
-            <li class="flex items-start gap-3 py-3 px-4 rounded bg-panna border border-umber/10 hover:border-umber/25 transition-colors">
-        <form method="POST" action="?/remove" use:enhance>
-          <input type="hidden" name="ids" value={group.ids.join(',')} />
-          <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label={`Exclure ${group.label} de la liste`}>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
-            </svg>
-          </button>
-        </form>
-        <div class="flex-1 {group.checked ? 'line-through text-sepia/60' : ''}">
-          <div class="flex items-baseline gap-3 flex-wrap">
-            <span class="font-sans text-[15px] font-medium text-umber">{group.label}</span>
-            {#if group.subtotals.length > 0}
-              <span class="font-display text-base text-umber/70">
-                {group.subtotals.map((s) => s.display).join(' · ')}
-              </span>
-            {/if}
-            {#if group.recipes.length > 1}
-              <span class="font-mono text-[10px] uppercase tracking-wider text-mare bg-mare-soft/30 rounded-full px-2 py-0.5">
-                ×{group.recipes.length} recettes
-              </span>
-            {/if}
-          </div>
-          {#if group.brand || group.productReference}
-            <div class="font-mono text-[10px] uppercase tracking-wider text-sepia mt-0.5">
-              {[group.brand, group.productReference].filter(Boolean).join(' · ')}
-            </div>
-          {/if}
-          {#if group.recipes.length > 0}
-            <div class="text-xs text-sepia/70 italic mt-0.5">{group.recipes.join(', ')}</div>
-          {/if}
-          {#if group.notes.length > 0}
-            <div class="text-sm text-sepia italic mt-0.5">{group.notes.join(' · ')}</div>
-          {/if}
-        </div>
-        <form method="POST" action="?/toggle" use:enhance class="pt-0.5">
-          <input type="hidden" name="ids" value={group.ids.join(',')} />
-          <input type="hidden" name="checked" value={group.checked ? '0' : '1'} />
-          <button
-            type="submit"
-            class="w-5 h-5 border rounded-sm flex items-center justify-center transition-all
-                   {group.checked
-                     ? 'bg-oliva border-oliva shadow-soft'
-                     : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
-            role="checkbox" aria-checked={group.checked}
-            aria-label={group.checked ? `Remettre ${group.label} à acheter` : `Marquer ${group.label} comme acheté`}
-          >
-            {#if group.checked}
-              <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 6 L5 9 L10 3" />
-              </svg>
-            {/if}
-          </button>
-        </form>
-      </li>
+            {#snippet details()}
+              {#if group.brand || group.productReference}
+                <div class="font-mono text-[10px] uppercase tracking-wider text-umber/75 mt-0.5">
+                  {[group.brand, group.productReference].filter(Boolean).join(' · ')}
+                </div>
+              {/if}
+              {#if group.recipes.length > 0}
+                <div class="text-xs text-umber/75 italic mt-0.5">{group.recipes.join(', ')}</div>
+              {/if}
+              {#if group.notes.length > 0}
+                <div class="text-sm text-umber/75 italic mt-0.5">{group.notes.join(' · ')}</div>
+              {/if}
+            {/snippet}
+            {@render shoppingItem({
+              ids: group.ids,
+              name: group.label,
+              checked: group.checked,
+              quantity: group.subtotals.map((subtotal) => subtotal.display).join(' · '),
+              recipeCount: group.recipes.length
+            }, details)}
           {/each}
         </ul>
       </section>
@@ -153,7 +172,7 @@
   <div class="space-y-10">
     {#each recipeGroups as group (group.title)}
       <section>
-        <div class="flex items-baseline gap-4 mb-4">
+        <div class="flex items-baseline gap-4 mb-2">
           <h2 class="h-display italic text-2xl text-mare">{group.title}</h2>
           {#if group.totalServings || group.instances > 1}
             <span class="font-mono text-[10px] uppercase tracking-wider text-mare bg-mare-soft/30 rounded-full px-2 py-0.5">
@@ -166,51 +185,22 @@
 
         <ul class="space-y-2">
           {#each group.lines as line (line.ids.join(','))}
-            <li class="flex items-start gap-3 py-3 px-4 rounded bg-panna border border-umber/10 hover:border-umber/25 transition-colors">
-              <form method="POST" action="?/remove" use:enhance>
-                <input type="hidden" name="ids" value={line.ids.join(',')} />
-                <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label={`Exclure ${line.name} de la liste`}>
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
-                  </svg>
-                </button>
-              </form>
-              <div class="flex-1 {line.checked ? 'line-through text-sepia/60' : ''}">
-                <div class="flex items-baseline gap-3 flex-wrap">
-                  <span class="font-sans text-[15px] font-medium text-umber">{line.name}</span>
-                  {#if line.total}
-                    <span class="font-display text-base text-umber/70">{line.display}</span>
-                  {/if}
+            {#snippet details()}
+              {#if line.brand || line.productReference}
+                <div class="font-mono text-[10px] uppercase tracking-wider text-umber/75 mt-0.5">
+                  {[line.brand, line.productReference].filter(Boolean).join(' · ')}
                 </div>
-                {#if line.brand || line.productReference}
-                  <div class="font-mono text-[10px] uppercase tracking-wider text-sepia mt-0.5">
-                    {[line.brand, line.productReference].filter(Boolean).join(' · ')}
-                  </div>
-                {/if}
-                {#if line.notes.length > 0}
-                  <div class="text-sm text-sepia italic mt-0.5">{line.notes.join(' · ')}</div>
-                {/if}
-              </div>
-              <form method="POST" action="?/toggle" use:enhance class="pt-0.5">
-                <input type="hidden" name="ids" value={line.ids.join(',')} />
-                <input type="hidden" name="checked" value={line.checked ? '0' : '1'} />
-                <button
-                  type="submit"
-                  class="w-5 h-5 border rounded-sm flex items-center justify-center transition-all
-                         {line.checked
-                           ? 'bg-oliva border-oliva shadow-soft'
-                           : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
-                  role="checkbox" aria-checked={line.checked}
-                  aria-label={line.checked ? `Remettre ${line.name} à acheter` : `Marquer ${line.name} comme acheté`}
-                >
-                  {#if line.checked}
-                    <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M2 6 L5 9 L10 3" />
-                    </svg>
-                  {/if}
-                </button>
-              </form>
-            </li>
+              {/if}
+              {#if line.notes.length > 0}
+                <div class="text-sm text-umber/75 italic mt-0.5">{line.notes.join(' · ')}</div>
+              {/if}
+            {/snippet}
+            {@render shoppingItem({
+              ids: line.ids,
+              name: line.name,
+              checked: line.checked,
+              quantity: line.total ? line.display : ''
+            }, details)}
           {/each}
         </ul>
       </section>
