@@ -118,47 +118,54 @@ export async function createRecipe(userId, formData) {
   return inserted;
 }
 
+async function saveRecipeChanges(userId, id, formData, fields) {
+  const ownedRecipe = and(eq(recipes.id, id), eq(recipes.userId, userId));
+  if (!db.select({ id: recipes.id }).from(recipes).where(ownedRecipe).get()) return null;
+
+  const photo = await selectedPhoto(formData);
+  const removePhoto = fields && formData.get('remove_photo');
+  if (!fields && !photo) throw new Error('Choisis une photo à enregistrer.');
+  const photoFields = photo ? { photoPath: photo.path, photoCredit: photo.credit, photoSource: photo.source }
+    : removePhoto ? { photoPath: null, photoCredit: '', photoSource: '' } : {};
+
+  let previous;
+  try {
+    previous = db.transaction((tx) => {
+      const current = tx.select({ code: recipes.code, photoPath: recipes.photoPath }).from(recipes).where(ownedRecipe).get();
+      if (current) tx.update(recipes).set({ ...fields, ...photoFields }).where(ownedRecipe).run();
+      return current;
+    });
+  } catch (err) {
+    deletePhoto(photo?.path);
+    throw err;
+  }
+  if (!previous) {
+    deletePhoto(photo?.path);
+    return null;
+  }
+  if (photo || removePhoto) deletePhoto(previous.photoPath);
+  return { id, code: previous.code };
+}
+
+/** @param {number} userId @param {number} id @param {FormData} formData */
+export async function updateRecipePhoto(userId, id, formData) {
+  return saveRecipeChanges(userId, id, formData);
+}
+
 /** @param {number} userId @param {number} id @param {FormData} formData */
 export async function updateRecipe(userId, id, formData) {
-  const existing = await db
-    .select()
-    .from(recipes)
-    .where(and(eq(recipes.id, id), eq(recipes.userId, userId)))
-    .limit(1);
-  if (existing.length === 0) throw new Error('Recette introuvable');
-  const current = existing[0];
-
   const title = String(formData.get('title') ?? '').trim();
   if (!title) throw new Error('Le titre est requis');
   const servings = parseServings(formData.get('servings') ?? 2);
 
-  let photoPath = current.photoPath;
-  let photoCredit = current.photoCredit;
-  let photoSource = current.photoSource;
-  const newPhoto = await selectedPhoto(formData);
-  if (newPhoto?.path) {
-    deletePhoto(current.photoPath);
-    photoPath = newPhoto.path;
-    photoCredit = newPhoto.credit;
-    photoSource = newPhoto.source;
-  } else if (formData.get('remove_photo')) {
-    deletePhoto(current.photoPath);
-    photoPath = null;
-    photoCredit = '';
-    photoSource = '';
-  }
-
-  await db
-    .update(recipes)
-    .set({
-      title,
-      description: String(formData.get('description') ?? '').trim(),
-      owner: String(formData.get('owner') ?? '').trim(),
-      servings,
-      instructions: String(formData.get('instructions') ?? ''),
-      photoPath, photoCredit, photoSource
-    })
-    .where(eq(recipes.id, id));
+  const updated = await saveRecipeChanges(userId, id, formData, {
+    title,
+    description: String(formData.get('description') ?? '').trim(),
+    owner: String(formData.get('owner') ?? '').trim(),
+    servings,
+    instructions: String(formData.get('instructions') ?? '')
+  });
+  if (!updated) throw new Error('Recette introuvable');
 
   await db.delete(recipeIngredients).where(eq(recipeIngredients.recipeId, id));
   const ings = await withCanonicalIds(parseIngredients(formData));
@@ -166,19 +173,17 @@ export async function updateRecipe(userId, id, formData) {
     await db.insert(recipeIngredients).values(ings.map((i) => ({ ...i, recipeId: id })));
   }
 
-  return { id, code: current.code };
+  return updated;
 }
 
 /** @param {number} userId @param {number} id */
 export async function deleteRecipe(userId, id) {
-  const existing = await db
-    .select()
-    .from(recipes)
+  const removed = db
+    .delete(recipes)
     .where(and(eq(recipes.id, id), eq(recipes.userId, userId)))
-    .limit(1);
-  if (existing.length === 0) return;
-  deletePhoto(existing[0].photoPath);
-  await db.delete(recipes).where(and(eq(recipes.id, id), eq(recipes.userId, userId)));
+    .returning({ photoPath: recipes.photoPath })
+    .get();
+  deletePhoto(removed?.photoPath);
 }
 
 /** @param {number} userId @param {number} id */

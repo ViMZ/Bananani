@@ -1,5 +1,6 @@
 const API = 'https://commons.wikimedia.org/w/api.php';
 const HEADERS = { 'User-Agent': 'Bananani/1.0 (https://bananani.fly.dev; recipe image search)' };
+const IMAGE_HOSTS = new Set(['upload.wikimedia.org', 'thumb.wikimedia.org']);
 const TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -16,23 +17,24 @@ function imageInfo(page) {
   const url = info.thumburl || info.url;
   let parsed;
   try { parsed = new URL(url); } catch { return null; }
-  if (parsed.protocol !== 'https:' || parsed.hostname !== 'upload.wikimedia.org' || parsed.username || parsed.password) return null;
+  if (parsed.protocol !== 'https:' || !IMAGE_HOSTS.has(parsed.hostname) || parsed.port ||
+      parsed.username || parsed.password || !parsed.pathname.startsWith('/wikipedia/commons/')) return null;
   const pageId = Number(page.pageid);
   if (!Number.isSafeInteger(pageId) || pageId < 1) return null;
   return {
-    pageId, title: plain(page.title?.replace(/^File:/, '')), url,
+    pageId, title: plain(page.title?.replace(/^File:/, '')), url: parsed.href,
     source: `https://commons.wikimedia.org/?curid=${pageId}`,
     author: plain(info.extmetadata?.Artist?.value) || 'Auteur indiqué sur la source', license
   };
 }
 
-async function query(params, fetcher) {
+async function query(params, fetcher, signal = AbortSignal.timeout(15000)) {
   const url = new URL(API);
   for (const [key, value] of Object.entries({ action: 'query', format: 'json', prop: 'imageinfo',
-    iiprop: 'url|mime|extmetadata', iiurlwidth: '1200', iiextmetadatafilter: 'Artist|LicenseShortName', ...params })) {
+    iiprop: 'url|mime|extmetadata', iiurlwidth: '960', iiextmetadatafilter: 'Artist|LicenseShortName', ...params })) {
     url.searchParams.set(key, value);
   }
-  const response = await fetcher(url, { headers: HEADERS, signal: AbortSignal.timeout(15000) });
+  const response = await fetcher(url, { headers: HEADERS, signal });
   if (!response.ok) throw new Error('La recherche d’images est momentanément indisponible. Réessaie ou choisis une photo.');
   const body = await response.json();
   if (body.error) throw new Error('La recherche d’images a échoué. Essaie un autre nom de plat.');
@@ -40,9 +42,29 @@ async function query(params, fetcher) {
 }
 
 export async function searchRecipeImages(term, fetcher = fetch) {
-  const q = String(term || '').trim();
+  const q = String(term || '').trim().replace(/\s+/g, ' ');
   if (q.length < 2 || q.length > 100) throw new Error('Saisis un nom de plat entre 2 et 100 caractères.');
-  return query({ generator: 'search', gsrsearch: `${q} filetype:bitmap`, gsrnamespace: '6', gsrlimit: '12' }, fetcher);
+  const signal = AbortSignal.timeout(15000);
+  const search = (words) => query({ generator: 'search', gsrsearch: `${words} filetype:bitmap`,
+    gsrnamespace: '6', gsrlimit: '12', iiurlwidth: '330' }, fetcher, signal);
+
+  const exact = await search(q);
+  if (exact.length) return exact;
+
+  // CirrusSearch accepte les variantes proches avec « ~ » (banane / banana, chocolat / chocolate).
+  const words = q.toLowerCase().match(/[\p{L}\p{M}]{3,}/gu)?.filter(word => !/^(les|des|une|aux|avec|sans|pour)$/.test(word)) ?? [];
+  const fuzzy = words.slice(0, 3).map((word, index) => {
+    return word.length >= 5 && (index > 0 || words.length === 1) ? `${word}~` : word;
+  }).join(' ');
+  if (fuzzy && fuzzy !== q.toLowerCase()) {
+    try {
+      const approximate = await search(fuzzy);
+      if (approximate.length) return approximate;
+    } catch (err) {
+      if (signal.aborted || words.length < 2) throw err;
+    }
+  }
+  return words.length > 1 ? search(words[0]) : [];
 }
 
 /** Relit les métadonnées officielles à l'enregistrement ; aucune URL fournie par le client. */

@@ -1,5 +1,5 @@
-import { error, redirect } from '@sveltejs/kit';
-import { getRecipeWithIngredients, deleteRecipe } from '$lib/server/recipes';
+import { error, fail, redirect } from '@sveltejs/kit';
+import { getRecipeWithIngredients, deleteRecipe, updateRecipePhoto } from '$lib/server/recipes';
 import { recipeInList, shoppingRows } from '$lib/server/shopping';
 import { db } from '$lib/server/db';
 import { shoppingItems } from '$lib/server/db/schema';
@@ -13,6 +13,18 @@ export async function load({ params, locals }) {
 }
 
 export const actions = {
+  updatePhoto: async ({ params, request, locals }) => {
+    const id = Number(params.id);
+    if (!Number.isSafeInteger(id) || id < 1) return fail(404, { photoError: 'Recette introuvable.' });
+    const formData = await request.formData();
+    try {
+      const updated = await updateRecipePhoto(locals.user.id, id, formData);
+      if (!updated) return fail(404, { photoError: 'Recette introuvable.' });
+      return { photoUpdated: true };
+    } catch (err) {
+      return fail(400, { photoError: err instanceof Error ? err.message : 'Impossible d’enregistrer la photo.' });
+    }
+  },
   delete: async ({ params, locals }) => {
     const id = Number(params.id);
     await deleteRecipe(locals.user.id, id);

@@ -1,5 +1,5 @@
 <script>
-  import PhotoCredit from '$lib/components/PhotoCredit.svelte';
+  import RecipePhoto from '$lib/components/RecipePhoto.svelte';
   import { formatUnit } from '$lib/ingredients/units';
   import Sprig from '$lib/components/Sprig.svelte';
   import Ornament from '$lib/components/Ornament.svelte';
@@ -69,18 +69,11 @@
 <!-- Contenu deux colonnes -->
 <div class="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-10 md:gap-14">
   <aside class="md:sticky md:top-28 self-start space-y-6">
-    {#if recipe.photoPath}
-      <div class="bg-panna p-3 rounded-card shadow-soft-lg border border-umber/15">
-        <img src={recipe.photoPath} alt={recipe.title} class="w-full aspect-square object-cover rounded" />
-        <PhotoCredit recipe={recipe} />
-      </div>
-    {:else}
-      <div class="bg-sand p-3 rounded-card shadow-soft-lg border border-umber/15">
-        <div class="w-full aspect-square bg-linen flex items-center justify-center rounded">
-          <span class="font-display italic text-7xl text-sepia">N°</span>
-        </div>
-      </div>
-    {/if}
+    <div>
+      {#key recipe.id}
+        <RecipePhoto {recipe} />
+      {/key}
+    </div>
 
     <!-- Meta cards -->
     <div class="grid grid-cols-2 gap-3">

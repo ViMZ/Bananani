@@ -78,6 +78,35 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.equal((await get(`/recipes/${recipeId}`, otherCookie)).status, 404);
     });
 
+    await t.test('replaces only the photo from the recipe and checks ownership', async () => {
+      const detailsPath = `/recipes/${recipeId}`;
+      const html = await (await get(detailsPath)).text();
+      assert.match(html, /Modifier la photo/);
+      assert.match(html, /Appareil photo/);
+      assert.match(html, /Galerie personnelle/);
+      assert.match(html, /Galerie publique/);
+      const storedRecipe = () => db.$client.prepare('SELECT * FROM recipes WHERE id = ?').get(recipeId);
+      const storedIngredients = () => db.$client.prepare('SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY position').all(recipeId);
+      const before = storedRecipe();
+      const ingredientsBefore = storedIngredients();
+      const data = new FormData();
+      data.set('title', 'Ce titre ne doit pas être enregistré');
+      data.set('photo', new File([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6n0UAAAAASUVORK5CYII=', 'base64')], 'new-dish.png', { type: 'image/png' }));
+      const savePhoto = (auth) => fetch(`${origin}${detailsPath}?/updatePhoto`, {
+        method: 'POST', headers: { Cookie: auth, Origin: origin, Accept: 'application/json', 'x-sveltekit-action': 'true' }, body: data
+      });
+      const denied = await (await savePhoto(otherCookie)).json();
+      assert.equal(denied.status, 404);
+      assert.deepEqual(storedRecipe(), before);
+      assert.equal((await (await savePhoto(cookie)).json()).type, 'success');
+      const after = storedRecipe();
+      assert.notEqual(after.photo_path, before.photo_path);
+      assert.deepEqual({ ...after, photo_path: before.photo_path }, before);
+      assert.deepEqual(storedIngredients(), ingredientsBefore);
+      assert.equal((await get(after.photo_path)).status, 200);
+      assert.equal((await get(before.photo_path)).status, 404);
+    });
+
     await t.test('stores 4 dinner portions and 2 lunch portions and copies them to the next week', async () => {
       for (const [dayOfWeek, meal, servings] of [[0, 'soir', 4], [1, 'midi', 2]]) {
         assert.equal((await post('/planning?/place', { recipeId, weekStart: '2099-01-05', dayOfWeek, meal, servings })).status, 200);
@@ -183,7 +212,10 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
     });
 
     await t.test('searches and imports a real Commons photo with attribution', { skip: process.env.LIVE_COMMONS !== '1' }, async () => {
-      const response = await get('/recipes/images?q=lasagna');
+      const muffins = await get('/recipes/images?q=muffins');
+      assert.equal(muffins.status, 200);
+      assert.ok((await muffins.json()).images.length > 0);
+      const response = await get('/recipes/images?q=muffins%20banane%20chocolat');
       assert.equal(response.status, 200);
       const { images } = await response.json();
       assert.ok(images.length > 0);

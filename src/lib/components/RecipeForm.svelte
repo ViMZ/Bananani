@@ -5,7 +5,9 @@
   import { UNITS, formatUnit } from '$lib/ingredients/units';
   import Combobox from '$lib/components/Combobox.svelte';
   import PhotoCredit from '$lib/components/PhotoCredit.svelte';
+  import RecipeImageSearch from '$lib/components/RecipeImageSearch.svelte';
   import { importRecipe } from '$lib/recipes/import.js';
+  import { MAX_PHOTO_BYTES, MAX_PHOTO_MB, maybeCompress } from '$lib/recipes/photo';
 
   let {
     recipe = { title: '', description: '', owner: '', servings: 2, instructions: '', photoPath: null },
@@ -188,13 +190,6 @@
   // lourds : plus besoin de réduire l'image soi-même, et on ne dépasse plus la
   // limite serveur (BODY_SIZE_LIMIT). Une validation de taille reste en filet de
   // sécurité — un POST trop lourd renverrait une 500 qui efface toute la saisie.
-  const MAX_PHOTO_MB = 15; // garde-fou sur l'original (aligné, avec marge, sur les 16 Mo serveur)
-  const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
-  const MAX_DIM = 1600; // plus grand côté après redimensionnement
-  const JPEG_QUALITY = 0.82;
-  const COMPRESS_IF_OVER_BYTES = 1024 * 1024; // ne recompresse pas les images déjà légères
-  const COMPRESSIBLE = new Set(['image/jpeg', 'image/png', 'image/webp']);
-
   let photoError = $state('');
   let photoInfo = $state('');
   let compressing = $state(false);
@@ -202,31 +197,13 @@
   let photoPreview = $state('');
   let selectedImage = $state(null);
   let imageSearchOpen = $state(false);
-  let imageQuery = $state('');
-  let imageResults = $state(null);
-  let imageSearching = $state(false);
-  let imageSearchError = $state('');
+  let imageQuery = $state(null);
 
   function clearPreview() {
     if (photoPreview) URL.revokeObjectURL(photoPreview);
     photoPreview = '';
   }
   onDestroy(clearPreview);
-
-  async function searchImages() {
-    if (imageSearching) return;
-    imageSearching = true;
-    imageSearchError = '';
-    imageResults = null;
-    try {
-      const response = await fetch(`/recipes/images?q=${encodeURIComponent(imageQuery)}`);
-      if (response.redirected) throw new Error('Ta session a expiré. Reconnecte-toi.');
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Recherche indisponible.');
-      imageResults = result.images;
-    } catch (err) { imageSearchError = err instanceof Error ? err.message : 'Recherche indisponible.'; }
-    finally { imageSearching = false; }
-  }
 
   function chooseImage(image) {
     clearPreview();
@@ -235,55 +212,6 @@
     photoError = '';
     photoInfo = '';
     imageSearchOpen = false;
-  }
-
-  /**
-   * Renvoie une version optimisée (JPEG redimensionné) si utile, sinon le fichier tel quel.
-   * @param {File} file
-   */
-  async function maybeCompress(file, maxDimension = MAX_DIM, quality = JPEG_QUALITY) {
-    if (!COMPRESSIBLE.has(file.type)) return file; // gif animé, etc. → inchangé
-    let bitmap;
-    try {
-      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    } catch {
-      try {
-        bitmap = await createImageBitmap(file);
-      } catch {
-        // Repli pour les navigateurs mobiles sans createImageBitmap fonctionnel.
-        const objectUrl = URL.createObjectURL(file);
-        try {
-          bitmap = await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = objectUrl;
-          });
-        } catch {
-          return file;
-        } finally { URL.revokeObjectURL(objectUrl); }
-      }
-    }
-    const { width, height } = bitmap;
-    const scale = Math.min(1, maxDimension / Math.max(width, height));
-    if (scale === 1 && file.size <= COMPRESS_IF_OVER_BYTES) {
-      bitmap.close?.();
-      return file; // déjà petite et légère : inutile de recompresser (évite une perte de qualité)
-    }
-    const w = Math.round(width * scale);
-    const h = Math.round(height * scale);
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff'; // fond blanc au cas où l'original a de la transparence
-    ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    bitmap.close?.();
-    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
-    if (!blob || blob.size >= file.size) return file; // pas plus léger → garder l'original
-    const base = (file.name || 'photo').replace(/\.[^.]+$/, '');
-    return new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
   }
 
   async function onPhotoChange(e) {
@@ -440,7 +368,7 @@
           <label class="btn-secondary cursor-pointer">Choisir dans la galerie
             <input class="sr-only" bind:this={photoInput} id="photo" name="photo" type="file" accept="image/*" disabled={compressing} onchange={onPhotoChange} />
           </label>
-          <button type="button" class="btn-secondary" disabled={compressing} onclick={() => { imageSearchOpen = !imageSearchOpen; imageQuery ||= formElement.elements.namedItem('title').value; }}>Rechercher une image</button>
+          <button type="button" class="btn-secondary" disabled={compressing} onclick={() => { imageSearchOpen = !imageSearchOpen; imageQuery ??= formElement.elements.namedItem('title').value; }}>Rechercher une image</button>
         </div>
         <input type="hidden" name="photo_commons_id" value={selectedImage?.pageId ?? ''} />
         {#if photoPreview || selectedImage}
@@ -450,28 +378,10 @@
             <button type="button" class="btn-ghost btn-sm" onclick={() => { clearPreview(); selectedImage = null; photoInput.value = ''; photoInfo = ''; photoError = ''; }}>Annuler ce choix</button>
           </div>
         {/if}
-        {#if imageSearchOpen}
-          <div class="mt-4 p-4 bg-linen rounded space-y-3">
+        {#if imageQuery !== null}
+          <div hidden={!imageSearchOpen} class="mt-4 p-4 bg-linen rounded space-y-3">
             <p class="text-sm text-sepia">Images réutilisables de Wikimedia Commons. L’auteur, la licence et le lien source seront conservés avec la recette.</p>
-            <div class="flex flex-wrap gap-2">
-              <input class="input flex-1 min-w-0" aria-label="Nom du plat à illustrer" bind:value={imageQuery} maxlength="100" placeholder="Lasagnes, tarte aux pommes…" onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchImages(); } }} />
-              <button type="button" class="btn-secondary" disabled={imageSearching || imageQuery.trim().length < 2} onclick={searchImages}>{imageSearching ? 'Recherche…' : 'Chercher'}</button>
-            </div>
-            <div aria-live="polite">
-              {#if imageSearchError}<p role="alert" class="text-sm text-terra">{imageSearchError}</p>{/if}
-              {#if imageResults?.length === 0}<p class="text-sm text-sepia">Aucune image trouvée. Essaie un nom plus simple ou en anglais, ou choisis une photo dans la galerie.</p>{/if}
-            </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {#each imageResults || [] as image (image.pageId)}
-                <div class="space-y-1 min-w-0">
-                  <button type="button" class="w-full text-left" aria-label={`Choisir ${image.title}`} onclick={() => chooseImage(image)}>
-                    <img src={image.url} alt={image.title} class="aspect-square object-cover w-full rounded" loading="lazy" />
-                    <span class="text-xs block break-words">{image.title}</span>
-                  </button>
-                  <a class="text-[10px] text-sepia underline break-words" href={image.source} target="_blank" rel="noreferrer">{image.author} · {image.license}</a>
-                </div>
-              {/each}
-            </div>
+            <RecipeImageSearch initialQuery={imageQuery} onSelect={chooseImage} />
           </div>
         {/if}
         <p class="text-xs text-sepia italic mt-1.5">
