@@ -8,6 +8,7 @@
  * Clé de regroupement :
  *   - `canonicalId` quand il est présent (résolution exacte via le catalogue) ;
  *   - sinon `normalizeName(name)` (rattrapage des items legacy free-text).
+ *   - les achats Maison gardent chacun leur ligne.
  *
  * Module pur — importable côté client comme côté serveur.
  */
@@ -39,8 +40,8 @@ export function aggregateItems(items) {
   const groups = new Map();
 
   for (const item of items) {
-    const ingredientKey =
-      item.canonicalId != null ? `c:${item.canonicalId}` : `n:${normalizeName(item.name)}`;
+    const ingredientKey = item.isHousehold ? `h:${item.id}`
+      : (item.canonicalId != null ? `c:${item.canonicalId}` : `n:${normalizeName(item.name)}`);
     const key = JSON.stringify([ingredientKey, item.removedUntil ?? null]);
 
     let g = groups.get(key);
@@ -136,4 +137,11 @@ export function groupByCategory(groups) {
     const rb = b[0] === UNCATEGORIZED ? CATEGORIES.length + 1 : categoryRank(b[0]);
     return ra - rb || a[0].localeCompare(b[0], 'fr');
   });
+}
+
+export function groupShoppingByCategory(items) {
+  const categories = groupByCategory(aggregateItems(items.filter((item) => !item.isHousehold)));
+  const household = aggregateItems(items.filter((item) => item.isHousehold));
+  if (household.length) categories.push(['Maison', household]);
+  return categories;
 }

@@ -13,7 +13,8 @@ export async function load({ url, locals }) {
     .from(shoppingItems)
     .leftJoin(ingredientCatalog, eq(shoppingItems.canonicalId, ingredientCatalog.id))
     .leftJoin(recipes, eq(shoppingItems.recipeId, recipes.id))
-    .where(and(eq(shoppingItems.userId, locals.user.id), eq(shoppingItems.checked, false), isNull(shoppingItems.removedUntil)))
+    .where(and(eq(shoppingItems.userId, locals.user.id), eq(shoppingItems.checked, false),
+      isNull(shoppingItems.removedUntil), isNull(shoppingItems.archivedAt)))
     .orderBy(shoppingItems.addedAt);
   const items = rows.map((r) => ({
     ...r.item,

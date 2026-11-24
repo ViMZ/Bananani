@@ -1,6 +1,6 @@
 import { db } from './db/index.js';
 import { shoppingItems } from './db/schema.js';
-import { eq, and, isNull } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, lte } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { normalizeName } from '../ingredients/normalize.js';
 import { effectiveServings, scaleQuantity } from '../ingredients/portions.js';
@@ -53,4 +53,67 @@ export async function recipeInList(userId, recipeId) {
     .where(and(eq(shoppingItems.userId, userId), eq(shoppingItems.recipeId, recipeId), isNull(shoppingItems.removedUntil)))
     .limit(1);
   return rows.length > 0;
+}
+
+const UNDO_WINDOW_MS = 5000;
+
+export function deleteExpiredShoppingItems(userId, now) {
+  db.delete(shoppingItems)
+    .where(and(eq(shoppingItems.userId, userId), lte(shoppingItems.removedUntil, now)))
+    .run();
+}
+
+/** À appeler dans la transaction qui vide ou remplace les courses. */
+export function clearShoppingItems(tx, userId) {
+  const ownItems = eq(shoppingItems.userId, userId);
+  tx.update(shoppingItems)
+    .set({ archivedAt: Date.now() })
+    .where(and(ownItems, eq(shoppingItems.isHousehold, true), eq(shoppingItems.checked, true),
+      isNull(shoppingItems.archivedAt), isNull(shoppingItems.removedUntil)))
+    .run();
+  tx.delete(shoppingItems).where(and(ownItems, eq(shoppingItems.isHousehold, false))).run();
+}
+
+function targetIds(formData) {
+  const raw = formData.get('ids') ?? formData.get('id') ?? '';
+  return String(raw).split(',').map((id) => Number(id.trim()))
+    .filter((id) => Number.isSafeInteger(id) && id > 0);
+}
+
+export function shoppingItemActions({ householdOnly = false } = {}) {
+  const scope = householdOnly ? eq(shoppingItems.isHousehold, true) : isNull(shoppingItems.archivedAt);
+
+  return {
+    toggle: async ({ request, locals }) => {
+      const formData = await request.formData();
+      const ids = targetIds(formData);
+      if (ids.length === 0) return;
+      const checked = formData.get('checked') === '1';
+      db.update(shoppingItems)
+        .set(checked ? { checked } : { checked, archivedAt: null })
+        .where(and(eq(shoppingItems.userId, locals.user.id), scope, inArray(shoppingItems.id, ids),
+          isNull(shoppingItems.removedUntil)))
+        .run();
+    },
+    remove: async ({ request, locals }) => {
+      const ids = targetIds(await request.formData());
+      if (ids.length === 0) return;
+      db.update(shoppingItems)
+        .set({ removedUntil: Date.now() + UNDO_WINDOW_MS })
+        .where(and(eq(shoppingItems.userId, locals.user.id), scope, inArray(shoppingItems.id, ids),
+          isNull(shoppingItems.removedUntil)))
+        .run();
+    },
+    undoRemove: async ({ request, locals }) => {
+      const formData = await request.formData();
+      const ids = targetIds(formData);
+      const removedUntil = Number(formData.get('removedUntil'));
+      if (ids.length === 0 || !Number.isSafeInteger(removedUntil)) return;
+      db.update(shoppingItems)
+        .set({ removedUntil: null })
+        .where(and(eq(shoppingItems.userId, locals.user.id), scope, inArray(shoppingItems.id, ids),
+          eq(shoppingItems.removedUntil, removedUntil), gt(shoppingItems.removedUntil, Date.now())))
+        .run();
+    }
+  };
 }

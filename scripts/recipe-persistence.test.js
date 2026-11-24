@@ -30,7 +30,8 @@ test('migrates old data, preserves ingredient order, and saves independent meal 
     const { groupByRecipe } = await import('../src/lib/ingredients/byRecipe.js');
     assert.equal((await getRecipeWithIngredients(1, 1)).recipe.title, 'Ancienne recette');
     assert.equal(db.$client.prepare('SELECT servings FROM meal_plan WHERE id = 1').get().servings, null);
-    assert.equal(db.$client.prepare('SELECT quantity FROM shopping_items WHERE id = 1').get().quantity, 300);
+    assert.deepEqual(db.$client.prepare('SELECT quantity, is_household, archived_at FROM shopping_items WHERE id = 1').get(),
+      { quantity: 300, is_household: 0, archived_at: null });
 
     function form(names) {
       const data = new FormData();

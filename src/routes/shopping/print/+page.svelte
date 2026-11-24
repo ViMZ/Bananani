@@ -1,12 +1,12 @@
 <script>
   import Sprig from '$lib/components/Sprig.svelte';
-  import { aggregateItems, groupByCategory } from '$lib/ingredients/aggregate';
+  import { groupShoppingByCategory } from '$lib/ingredients/aggregate';
   import { groupByRecipe } from '$lib/ingredients/byRecipe';
   let { data } = $props();
 
   let recipeGroups = $derived(groupByRecipe(data.items, { manualLabel: 'Divers' }));
 
-  let byCategory = $derived(groupByCategory(aggregateItems(data.items)));
+  let byCategory = $derived(groupShoppingByCategory(data.items));
 
   function print() {
     window.print();

@@ -1,15 +1,14 @@
 import { fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { shoppingItems, ingredientCatalog, recipes } from '$lib/server/db/schema';
-import { eq, and, inArray, isNull, lte } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { resolveOrCreate } from '$lib/server/ingredients/catalog';
-
-const UNDO_WINDOW_MS = 5000;
+import { clearShoppingItems, deleteExpiredShoppingItems, shoppingItemActions } from '$lib/server/shopping';
 
 export async function load({ locals }) {
   const now = Date.now();
   const ownItems = eq(shoppingItems.userId, locals.user.id);
-  await db.delete(shoppingItems).where(and(ownItems, lte(shoppingItems.removedUntil, now)));
+  deleteExpiredShoppingItems(locals.user.id, now);
 
   const rows = await db
     .select({
@@ -20,7 +19,7 @@ export async function load({ locals }) {
     .from(shoppingItems)
     .leftJoin(ingredientCatalog, eq(shoppingItems.canonicalId, ingredientCatalog.id))
     .leftJoin(recipes, eq(shoppingItems.recipeId, recipes.id))
-    .where(ownItems)
+    .where(and(ownItems, isNull(shoppingItems.archivedAt)))
     .orderBy(shoppingItems.addedAt, shoppingItems.id);
   const items = rows.map((r) => ({
     ...r.item,
@@ -30,49 +29,8 @@ export async function load({ locals }) {
   return { items, now };
 }
 
-/**
- * Récupère les ids ciblés par une action : un `ids` (CSV, vue agrégée) ou un
- * `id` unique (vue par recette). Renvoie un tableau d'entiers valides.
- * @param {FormData} formData
- */
-function targetIds(formData) {
-  const raw = formData.get('ids') ?? formData.get('id') ?? '';
-  return String(raw)
-    .split(',')
-    .map((s) => Number(s.trim()))
-    .filter((n) => Number.isInteger(n) && n > 0);
-}
-
 export const actions = {
-  toggle: async ({ request, locals }) => {
-    const formData = await request.formData();
-    const ids = targetIds(formData);
-    if (ids.length === 0) return;
-    const checked = formData.get('checked') === '1';
-    await db
-      .update(shoppingItems)
-      .set({ checked })
-      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids), isNull(shoppingItems.removedUntil)));
-  },
-  remove: async ({ request, locals }) => {
-    const formData = await request.formData();
-    const ids = targetIds(formData);
-    if (ids.length === 0) return;
-    await db
-      .update(shoppingItems)
-      .set({ removedUntil: Date.now() + UNDO_WINDOW_MS })
-      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids), isNull(shoppingItems.removedUntil)));
-  },
-  undoRemove: async ({ request, locals }) => {
-    const formData = await request.formData();
-    const ids = targetIds(formData);
-    const removedUntil = Number(formData.get('removedUntil'));
-    if (ids.length === 0 || !Number.isSafeInteger(removedUntil) || removedUntil <= Date.now()) return;
-    await db
-      .update(shoppingItems)
-      .set({ removedUntil: null })
-      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids), eq(shoppingItems.removedUntil, removedUntil)));
-  },
+  ...shoppingItemActions(),
   removeRecipe: async ({ request, locals }) => {
     const formData = await request.formData();
     const rawRecipeId = formData.get('recipeId');
@@ -91,7 +49,7 @@ export const actions = {
   clearAll: async ({ request, locals }) => {
     const formData = await request.formData();
     if (formData.get('confirmed') !== '1') return fail(400);
-    await db.delete(shoppingItems).where(eq(shoppingItems.userId, locals.user.id));
+    db.transaction((tx) => clearShoppingItems(tx, locals.user.id));
   },
   add: async ({ request, locals }) => {
     const formData = await request.formData();

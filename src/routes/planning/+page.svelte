@@ -416,7 +416,8 @@
     <div class="relative card max-w-sm w-full">
       <h2 class="font-display italic text-2xl text-umber mb-2">Liste de courses existante</h2>
       <p class="text-sm text-sepia mb-5">
-        Une liste de courses existe déjà. Ajouter les recettes de la semaine, ou remplacer la liste ?
+        Une liste de courses existe déjà. Si tu la remplaces, les articles Maison à acheter restent dans Courses.
+        Les articles Maison cochés restent disponibles dans Maison, sous « Achetés ».
       </p>
       <div class="space-y-2">
         <button type="button" class="btn-primary w-full" onclick={() => generate('append')}>

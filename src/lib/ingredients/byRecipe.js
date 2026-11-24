@@ -53,9 +53,10 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
 
   for (const item of items) {
     const recipeId = item.recipeId ?? null;
-    const isRecipe = recipeId !== null || !!item.recipeTitle;
-    const title = isRecipe ? item.recipeTitle || 'Recette' : manualLabel;
-    const key = recipeId !== null ? `recipe:${recipeId}` : isRecipe ? `snapshot:${title}` : 'manual';
+    const isRecipe = !item.isHousehold && (recipeId !== null || !!item.recipeTitle);
+    const title = item.isHousehold ? 'Maison' : (isRecipe ? item.recipeTitle || 'Recette' : manualLabel);
+    const key = item.isHousehold ? 'household'
+      : (recipeId !== null ? `recipe:${recipeId}` : isRecipe ? `snapshot:${title}` : 'manual');
     let g = groups.get(key);
     if (!g) {
       g = { key, recipeId, title, isRecipe, servings: null, items: [] };

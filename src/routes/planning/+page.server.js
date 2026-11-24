@@ -5,7 +5,7 @@ import { eq, and, asc, desc, isNull } from 'drizzle-orm';
 import { getRecipesForCards, getRecipeWithIngredients } from '$lib/server/recipes';
 import { mondayOf, todayISO, isValidISO, isPastDay, addWeeks, parseISO } from '$lib/date/week';
 import { effectiveServings, parseServings } from '$lib/ingredients/portions';
-import { shoppingRows } from '$lib/server/shopping';
+import { clearShoppingItems, shoppingRows } from '$lib/server/shopping';
 
 export async function load({ url, locals }) {
   const userId = locals.user.id;
@@ -37,7 +37,7 @@ export async function load({ url, locals }) {
   const shoppingProbe = await db
     .select({ id: shoppingItems.id })
     .from(shoppingItems)
-    .where(and(eq(shoppingItems.userId, userId), isNull(shoppingItems.removedUntil)))
+    .where(and(eq(shoppingItems.userId, userId), isNull(shoppingItems.removedUntil), isNull(shoppingItems.archivedAt)))
     .limit(1);
 
   return {
@@ -226,7 +226,7 @@ export const actions = {
     if (values.length === 0 && mode !== 'replace') return { empty: true };
 
     db.transaction(tx => {
-      if (mode === 'replace') tx.delete(shoppingItems).where(eq(shoppingItems.userId, userId)).run();
+      if (mode === 'replace') clearShoppingItems(tx, userId);
       // Petits lots pour rester sous la limite de paramètres SQLite.
       for (let i = 0; i < values.length; i += 40) tx.insert(shoppingItems).values(values.slice(i, i + 40)).run();
     });

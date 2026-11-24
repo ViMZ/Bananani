@@ -1,8 +1,9 @@
 <script>
   import { enhance } from '$app/forms';
   import Sprig from '$lib/components/Sprig.svelte';
-  import { aggregateItems, groupByCategory } from '$lib/ingredients/aggregate';
+  import { groupShoppingByCategory } from '$lib/ingredients/aggregate';
   import { groupByRecipe } from '$lib/ingredients/byRecipe';
+  import { withUndoWindow } from '$lib/ingredients/shopping-items.svelte.js';
 
   let { data } = $props();
 
@@ -17,24 +18,16 @@
     localStorage.setItem('shopping-view', mode);
   }
 
-  let expiredUntil = $state(0);
-  let visibleItems = $derived(data.items.filter((item) => !item.removedUntil || item.removedUntil > expiredUntil));
+  const shopping = withUndoWindow(() => data);
+  let visibleItems = $derived(shopping.items);
   let hasActiveItems = $derived(visibleItems.some((item) => !item.removedUntil));
-
-  $effect(() => {
-    const deadlines = new Set(data.items.map((item) => item.removedUntil).filter(Boolean));
-    const timers = [...deadlines].map((deadline) => setTimeout(() => {
-      expiredUntil = Math.max(expiredUntil, deadline);
-    }, Math.max(0, deadline - data.now)));
-    return () => timers.forEach(clearTimeout);
-  });
 
   // Vue par recette : une entrée par recette ; les ajouts multiples sont fusionnés
   // et rendus explicites (« 2 pers × 2 », « 200 × 2 »).
   let recipeGroups = $derived(groupByRecipe(visibleItems));
 
   // Vue par ingrédient : agrégation + addition, groupée par rayon de magasin.
-  let byCategory = $derived(groupByCategory(aggregateItems(visibleItems)));
+  let byCategory = $derived(groupShoppingByCategory(visibleItems));
 
   // Ajout manuel : bouton → modale.
   let addModalOpen = $state(false);
@@ -153,7 +146,10 @@
 
 <dialog bind:this={clearDialog} class="card no-print m-auto w-[calc(100%-2rem)] max-w-md backdrop:bg-umber/50" aria-labelledby="clear-title" aria-describedby="clear-description">
   <h2 id="clear-title" class="font-display italic text-2xl text-umber">Vider la liste de courses ?</h2>
-  <p id="clear-description" class="mt-2 text-sm text-sepia">Tous les articles de la liste seront supprimés.</p>
+  <p id="clear-description" class="mt-2 text-sm text-sepia">
+    Les articles Maison à acheter restent dans Courses. Les articles Maison cochés restent disponibles dans Maison, sous « Achetés ».
+    Les autres articles de Courses seront supprimés.
+  </p>
   <form method="POST" action="?/clearAll" use:enhance={() => { clearDialog.close(); }} class="mt-5 flex flex-wrap justify-end gap-2">
     <input type="hidden" name="confirmed" value="1" />
     <button type="button" class="btn-ghost" onclick={() => clearDialog.close()}>Annuler</button>

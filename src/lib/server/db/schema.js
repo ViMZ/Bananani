@@ -69,6 +69,8 @@ export const shoppingItems = sqliteTable('shopping_items', {
   unit: text('unit').default(''),
   notes: text('notes').default(''),
   checked: integer('checked', { mode: 'boolean' }).default(false),
+  isHousehold: integer('is_household', { mode: 'boolean' }).notNull().default(false),
+  archivedAt: integer('archived_at'),
   batchId: text('batch_id'),
   servings: integer('servings'),
   removedUntil: integer('removed_until'),
