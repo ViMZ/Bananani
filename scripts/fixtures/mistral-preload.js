@@ -15,6 +15,12 @@ globalThis.fetch = async (url, options) => {
   }
   if (target.endsWith('/chat/completions') && request.model === 'mistral-small-latest') {
     const source = JSON.parse(request.messages[1].content);
+    if (request.response_format.json_schema.name === 'improved_preparation') {
+      if (!source.ingredients.some(ingredient => ingredient.name === 'Pâtes')) throw new Error('Missing saved ingredients in preparation request');
+      return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({
+        instructions: '1. Préchauffer le four à 180 °C.\n2. Enfourner pendant 25 min.'
+      }) } }] });
+    }
     if (source.recipe.title === 'Import lent') await new Promise(resolve => setTimeout(resolve, 100));
     if (source.recipe.title === 'Relecture indisponible') return new Response('upstream-private-detail', { status: 503 });
     return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({

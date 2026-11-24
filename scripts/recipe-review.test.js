@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeRecipe, reviewRecipe, validateReview, REVIEW_MODEL } from '../src/lib/server/recipe-review.js';
+import { analyzeRecipe, improvePreparation, reviewRecipe, validateReview, REVIEW_MODEL } from '../src/lib/server/recipe-review.js';
 import { validateRecipe } from '../src/lib/server/recipe-ocr.js';
 import { CATEGORIES } from '../src/lib/ingredients/categories.js';
 
@@ -41,8 +41,18 @@ test('runs OCR then a structured culinary review using only extracted text', asy
   assert.equal(result.ingredients[0].category, 'Épicerie salée');
   assert.ok(result.ingredients[0].suggestedFields.includes('quantity'));
   assert.ok(result.review.suggestedFields.includes('servings'));
-  assert.ok(result.review.suggestedFields.includes('instructions'));
+  assert.equal(result.recipe.instructions, '');
+  assert.ok(!result.review.suggestedFields.includes('instructions'));
   assert.match(result.review.changes.join('\n'), /Retrait proposé : Imprimer ce document/);
+});
+
+test('preserves the OCR wording, order, timings and temperature even when the review rewrites them', async () => {
+  const instructions = 'Enfourner à 180 °C pendant 25 min.\nLaisser tiédir 10 min.';
+  const result = await analyzeRecipe(Buffer.from('photo'), 'image/jpeg', 'test', async url => url.endsWith('/ocr')
+    ? Response.json({ document_annotation: { ...annotation, instructions } })
+    : chatResponse({ ...reviewed, instructions: 'Préchauffer à 200 °C, puis cuire 30 min.' }));
+  assert.equal(result.recipe.instructions, instructions);
+  assert.ok(!result.review.suggestedFields.includes('instructions'));
 });
 
 test('does not label unchanged facts as suggestions and flags changes even if model omits explanations', () => {
@@ -122,9 +132,32 @@ test('can recover from missing structured OCR using markdown, but cannot manufac
     : chatResponse({ ...reviewed, ingredients: reviewed.ingredients.map(i => ({ ...i, sourceIds: [] })) }));
   assert.equal(result.original, null);
   assert.equal(result.review.status, 'complete');
+  assert.equal(result.recipe.instructions, '');
   await assert.rejects(analyzeRecipe(Buffer.from('x'), 'image/jpeg', 'test', async () => Response.json({ document_annotation: null })), /illisible/);
   await assert.rejects(analyzeRecipe(Buffer.from('x'), 'image/jpeg', 'test', async url => url.endsWith('/ocr')
     ? Response.json({ pages: [{ markdown: 'Texte sans recette' }] }) : chatResponse({ ...reviewed, isRecipe: false })), /incomplète/);
+});
+
+test('recovers OCR instructions verbatim when the structured annotation is missing', async () => {
+  const instructions = 'Faire bouillir l’eau.\nCuire les pâtes al dente.';
+  const result = await analyzeRecipe(Buffer.from('photo'), 'image/jpeg', 'test', async url => url.endsWith('/ocr')
+    ? Response.json({ pages: [{ markdown: `${source.text}\n## Préparation\n${instructions}` }] })
+    : chatResponse({ ...reviewed, instructions, ingredients: reviewed.ingredients.map(i => ({ ...i, sourceIds: [] })) }));
+  assert.equal(result.recipe.instructions, instructions);
+});
+
+test('generates only a preparation proposal when requested and rejects invalid output', async () => {
+  const preparation = { title: 'Gratin de pâtes', instructions: '' };
+  const instructions = '1. Préchauffer le four à 180 °C (température estimée).\n2. Enfourner le gratin.';
+  assert.equal(await improvePreparation(preparation, 'test', async (url, options) => {
+    const request = JSON.parse(options.body);
+    assert.equal(request.response_format.json_schema.name, 'improved_preparation');
+    assert.deepEqual(request.response_format.json_schema.schema.required, ['instructions']);
+    assert.match(request.messages[0].content, /préchauffage au début/);
+    assert.deepEqual(JSON.parse(request.messages[1].content), preparation);
+    return chatResponse({ instructions });
+  }), instructions);
+  await assert.rejects(improvePreparation(preparation, 'test', async () => chatResponse({ instructions: [] })), /illisible/);
 });
 
 test('rejects truncated completions and supports text content chunks', async () => {

@@ -1,4 +1,5 @@
 <script>
+  import { enhance } from '$app/forms';
   import RecipePhoto from '$lib/components/RecipePhoto.svelte';
   import PhotoCredit from '$lib/components/PhotoCredit.svelte';
   import { formatUnit } from '$lib/ingredients/units';
@@ -10,6 +11,24 @@
   let { recipe, ingredients } = $derived(data);
 
   let confirmDelete = $state(false);
+  let preparationPending = $state(false);
+  let proposalField = $state();
+
+  function submitPreparation({ cancel }) {
+    if (preparationPending) {
+      cancel();
+      return;
+    }
+    preparationPending = true;
+    return async ({ update, result }) => {
+      try {
+        await update({ reset: false, invalidateAll: false });
+        if (result.type === 'success') proposalField?.focus();
+      } finally {
+        preparationPending = false;
+      }
+    };
+  }
 
   const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
     'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
@@ -127,16 +146,46 @@
       {/if}
     </section>
 
-    {#if recipe.instructions}
-      <section>
-        <Ornament glyph="✦" tone="terra" />
-        <div class="flex items-baseline gap-4 mb-6">
-          <h2 class="h-display text-3xl italic text-umber">La preparazione</h2>
-          <span class="flex-1 h-px bg-umber/15"></span>
-        </div>
+    <section id="preparation" class="scroll-mt-28">
+      <Ornament glyph="✦" tone="terra" />
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-3 mb-6">
+        <h2 class="h-display text-3xl italic text-umber">La preparazione</h2>
+        <span class="hidden sm:block flex-1 h-px bg-umber/15"></span>
+        {#if !form?.preparationProposal}
+          <form method="POST" action="?/improvePreparation#preparation" use:enhance={submitPreparation} class="no-print">
+            <button type="submit" class="btn-secondary text-sm" disabled={preparationPending}>
+              {preparationPending ? 'Proposition en cours…' : 'Améliorer la recette'} <span aria-hidden="true">✦</span>
+            </button>
+          </form>
+        {/if}
+      </div>
+      {#if recipe.instructions?.trim()}
         <div class="font-sans whitespace-pre-wrap leading-relaxed text-[15px] text-umber/90">{recipe.instructions}</div>
-      </section>
-    {/if}
+      {:else}
+        <p class="italic text-sepia">Aucune étape de préparation renseignée.</p>
+      {/if}
+
+      {#if form?.preparationError}
+        <p role="alert" class="no-print text-sm text-terra mt-4">{form.preparationError}</p>
+      {/if}
+      {#if form?.preparationProposal}
+        <form method="POST" action="?/savePreparation#preparation" use:enhance={submitPreparation} class="no-print card-flat mt-6 space-y-3">
+          <label for="preparation-proposal" class="label">Proposition de préparation ✦</label>
+          <p id="preparation-hint" class="text-sm text-sepia">Relis la proposition et modifie-la si besoin avant de l’enregistrer.</p>
+          <input type="hidden" name="revision" value={form.preparationProposal.revision} />
+          <textarea id="preparation-proposal" name="instructions" class="input" rows="8" required maxlength={data.maxPreparationLength}
+            aria-describedby="preparation-hint" bind:this={proposalField}>{form.preparationProposal.instructions}</textarea>
+          <div class="flex flex-wrap gap-2">
+            <button type="submit" class="btn-primary" disabled={preparationPending}>
+              Enregistrer la préparation
+            </button>
+            <button type="submit" formaction="?/discardPreparation#preparation" formnovalidate class="btn-secondary" disabled={preparationPending}>
+              Annuler
+            </button>
+          </div>
+        </form>
+      {/if}
+    </section>
 
     <section class="no-print pt-8">
       <Ornament glyph="✕" tone="terra" />

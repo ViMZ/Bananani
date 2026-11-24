@@ -64,7 +64,8 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       const html = await (await get(`/recipes/${recipeId}`)).text();
       assert.ok(html.indexOf('Pâtes</span>') < html.indexOf('Saumon</span>'));
       assert.match(html, /pièces/);
-      const data = form({ title: 'Pâtes au saumon', servings: 4, ing_name: ['Œufs', 'Pâtes'], ing_quantity: [4, 300], ing_unit: ['pièce', 'g'] });
+      const data = form({ title: 'Pâtes au saumon', servings: 4, instructions: 'Enfourner 25 min à 180 °C.',
+        ing_name: ['Œufs', 'Pâtes'], ing_quantity: [4, 300], ing_unit: ['pièce', 'g'] });
       data.set('photo', new File([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6n0UAAAAASUVORK5CYII=', 'base64')], 'dish.png', { type: 'image/png' }));
       const edited = await fetch(`${origin}/recipes/${recipeId}/edit`, { method: 'POST', redirect: 'manual', headers: { Cookie: cookie, Origin: origin, Accept: 'text/html' }, body: data });
       assert.equal(edited.status, 303);
@@ -76,6 +77,41 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.equal(unsupported.status, 400);
       assert.match(await (await get(`/recipes/${recipeId}`)).text(), /\/uploads\/.*\.png/);
       assert.equal((await get(`/recipes/${recipeId}`, otherCookie)).status, 404);
+    });
+
+    await t.test('previews, discards and saves only approved preparation on the recipe page', async () => {
+      const path = `/recipes/${recipeId}`;
+      const savedRecipe = () => db.$client.prepare('SELECT * FROM recipes WHERE id = ?').get(recipeId);
+      const savedIngredients = () => db.$client.prepare('SELECT * FROM recipe_ingredients WHERE recipe_id = ? ORDER BY position').all(recipeId);
+      const original = savedRecipe();
+      const ingredients = savedIngredients();
+      const act = (action, fields = {}, auth = cookie) => post(`${path}?/${action}`, fields, auth);
+      const page = await (await get(path)).text();
+      assert.match(page, /La preparazione/);
+      assert.match(page, /Améliorer la recette/);
+      assert.equal((await act('improvePreparation', {}, otherCookie)).status, 404);
+
+      const preview = await act('improvePreparation');
+      assert.equal(preview.status, 200);
+      const proposalPage = await preview.text();
+      assert.match(proposalPage, /Enfourner 25 min à 180 °C/);
+      assert.match(proposalPage, /1\. Préchauffer le four à 180 °C/);
+      const revision = proposalPage.match(/name="revision" value="([a-f0-9]{64})"/)?.[1];
+      assert.ok(revision);
+      assert.deepEqual(savedRecipe(), original);
+      const cancelled = await act('discardPreparation');
+      assert.equal(cancelled.status, 303);
+      assert.deepEqual(savedRecipe(), original);
+
+      const edited = { revision, instructions: '1. Préchauffer le four à 180 °C.\n2. Cuire le gratin 25 min.' };
+      assert.equal((await act('savePreparation', edited, otherCookie)).status, 404);
+      const saved = await act('savePreparation', edited);
+      assert.equal(saved.status, 303);
+      assert.equal(saved.headers.get('location'), `${path}#preparation`);
+      assert.deepEqual(savedRecipe(), { ...original, instructions: edited.instructions });
+      assert.deepEqual(savedIngredients(), ingredients);
+      assert.equal((await act('savePreparation', { ...edited, instructions: 'Ancienne proposition' })).status, 409);
+      assert.match(await (await get(path)).text(), /Cuire le gratin 25 min/);
     });
 
     await t.test('replaces only the photo from the recipe and checks ownership', async () => {
@@ -197,6 +233,7 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
         const response = await fetch(`${origin}/recipes/ocr`, { method: 'POST', headers: { Cookie: cookie, Origin: origin }, body: data });
         assert.equal(response.status, 200);
         const result = await response.json();
+        assert.equal(result.recipe.instructions, '');
         assert.equal(result.review.status, marker ? 'unavailable' : 'complete');
         assert.equal(result.original.ingredients.length, 3);
         if (marker) {

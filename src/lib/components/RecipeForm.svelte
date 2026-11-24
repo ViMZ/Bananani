@@ -32,7 +32,7 @@
   let scanRequestId = '';
   let scanPhase = $state('upload');
   let scanPreview = $derived(scanUseOriginal && scanResult?.original ? scanResult.original : scanResult);
-  const suggestionLabels = { title: 'titre', description: 'description', owner: 'auteur', servings: 'personnes', instructions: 'étapes',
+  const suggestionLabels = { title: 'titre', description: 'description', owner: 'auteur', servings: 'personnes',
     name: 'nom', quantity: 'quantité', unit: 'unité', notes: 'notes', brand: 'marque', productReference: 'référence', category: 'rayon' };
   let reviewingCategories = $state(false);
   let suggestingCategories = $state(false);
@@ -292,7 +292,7 @@
       <div class="bg-linen rounded p-4 space-y-3">
         {#if scanResult.review?.status === 'complete'}
           <p class="text-sm font-medium text-mare">Recette relue · suggestions à vérifier</p>
-          <p class="text-sm text-sepia">Les champs marqués ont été complétés ou ajustés. Les quantités, portions et étapes proposées peuvent être des estimations.</p>
+          <p class="text-sm text-sepia">Les champs marqués ont été complétés ou ajustés. Les quantités et portions proposées peuvent être des estimations.</p>
           {#if scanResult.original}
             <label class="flex gap-2 items-start text-sm"><input type="checkbox" checked={scanUseOriginal} onchange={(event) => { scanUseOriginal = event.currentTarget.checked; applyScan(); }} class="mt-1 accent-mare" /> Remplacer les champs par la lecture OCR d’origine, sans les suggestions</label>
           {/if}

@@ -22,6 +22,8 @@ test('extracts annotations and sends image only to Mistral', async () => {
     const body = JSON.parse(options.body);
     assert.equal(body.document.type, 'image_url');
     assert.equal(body.document_annotation_format.type, 'json_schema');
+    assert.match(body.document_annotation_prompt, /transcris mot pour mot/);
+    assert.match(body.document_annotation_prompt, /fautes d'orthographe évidentes/);
     return Response.json({ document_annotation: JSON.stringify(sample) });
   });
   assert.equal(result.recipe.title, 'Crêpes');

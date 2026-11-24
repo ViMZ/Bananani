@@ -109,8 +109,10 @@ ouvre la lecture OCR pour les documents sans code.
 
 Après l’OCR, une relecture par `mistral-small-latest` connaît le schéma de Bananani
 et propose une recette structurée : nettoyage du bruit OCR et des doublons,
-correction des noms, portions et quantités manquantes, étapes de préparation,
-description et rayons. Les variantes et les contraintes de la fiche sont conservées ;
+correction des noms, portions et quantités manquantes, description et rayons.
+Les étapes sont transcrites dans l’ordre de la fiche avec des retours à la ligne
+et des corrections d’orthographe évidentes. Une fiche sans étapes lisibles donne
+une préparation vide. Les variantes et les contraintes de la fiche sont conservées ;
 les marques et auteurs ne doivent pas être inventés. Les champs ajustés, ajouts
 et retraits sont signalés dans l’aperçu, avec les explications du modèle. Les
 estimations restent à vérifier. On peut consulter la lecture OCR d’origine et
@@ -118,6 +120,12 @@ choisir de l’utiliser seule (cela remplace les champs du formulaire), puis mod
 le formulaire avant l’enregistrement. Les rayons déjà connus du catalogue priment
 sur les nouvelles suggestions.
 Les suggestions n’enregistrent aucune recette ni aucun ingrédient en base.
+
+Dans une recette enregistrée, le bouton « Améliorer la recette ✦ » à côté de
+« La preparazione » propose une réécriture des étapes. L’IA peut compléter le
+déroulé, par exemple en ajoutant le préchauffage pour une cuisson au four.
+La proposition peut être modifiée ou annulée. « Enregistrer la préparation »
+applique le texte validé à la recette.
 
 Le navigateur envoie la photo puis suit l’import par des requêtes courtes, avec
 les phases de lecture et de relecture affichées. Un identifiant d’import propre

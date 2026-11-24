@@ -1,6 +1,6 @@
 import { db } from './db/index.js';
 import { recipes, recipeIngredients } from './db/schema.js';
-import { eq, and, inArray, desc } from 'drizzle-orm';
+import { eq, and, inArray, desc, isNull } from 'drizzle-orm';
 import { generateRecipeCode } from './codes.js';
 import { savePhoto, deletePhoto } from './uploads.js';
 import { resolveOrCreate } from './ingredients/catalog.js';
@@ -150,6 +150,14 @@ async function saveRecipeChanges(userId, id, formData, fields) {
 /** @param {number} userId @param {number} id @param {FormData} formData */
 export async function updateRecipePhoto(userId, id, formData) {
   return saveRecipeChanges(userId, id, formData);
+}
+
+export function updateRecipeInstructions(userId, id, previous, instructions) {
+  return db.update(recipes).set({ instructions }).where(and(
+    eq(recipes.userId, userId),
+    eq(recipes.id, id),
+    previous === null ? isNull(recipes.instructions) : eq(recipes.instructions, previous)
+  )).run().changes > 0;
 }
 
 /** @param {number} userId @param {number} id @param {FormData} formData */
