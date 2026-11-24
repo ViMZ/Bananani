@@ -38,17 +38,16 @@ export const actions = {
     if (!data) return fail(404, { error: `Aucune recette trouvée pour le code « ${code} »`, code });
 
     const { recipe, ingredients } = data;
-    if (ingredients.length === 0) {
+    const rows = shoppingRows(userId, recipe, ingredients);
+    if (rows.length === 0) {
       return { added: 0, recipeTitle: recipe.title, code: recipe.code, empty: true };
     }
     if (!force && await recipeInList(userId, recipe.id)) {
       return { added: 0, recipeTitle: recipe.title, code: recipe.code, alreadyInList: true };
     }
 
-    await db.insert(shoppingItems).values(
-      shoppingRows(userId, recipe, ingredients)
-    );
+    await db.insert(shoppingItems).values(rows);
 
-    return { added: ingredients.length, recipeTitle: recipe.title, code: recipe.code };
+    return { added: rows.length, recipeTitle: recipe.title, code: recipe.code };
   }
 };

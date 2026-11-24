@@ -106,13 +106,12 @@ export const actions = {
     const data = await getRecipeWithIngredients(userId, id);
     if (!data) throw error(404);
     const { recipe, ingredients } = data;
-    if (ingredients.length === 0) return { added: 0, empty: true };
+    const rows = shoppingRows(userId, recipe, ingredients);
+    if (rows.length === 0) return { added: 0, empty: true };
     // Empêche le doublon involontaire ; l'utilisateur peut passer outre avec force.
     if (!force && (await recipeInList(userId, id))) return { alreadyInList: true };
 
-    await db.insert(shoppingItems).values(
-      shoppingRows(userId, recipe, ingredients)
-    );
+    await db.insert(shoppingItems).values(rows);
     throw redirect(303, '/shopping');
   }
 };

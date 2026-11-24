@@ -215,6 +215,43 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.equal(readDeadline.get(itemIds[0]), undefined);
     });
 
+    await t.test('filters pantry staples only when transferring recipe ingredients to shopping', async () => {
+      const ing_name = ['Sel et poivre', 'Sel fin', 'Poivre noir moulu', 'Eau tiède', 'Huile d’olive extra-vierge',
+        'Gros sel', 'Gros sel', 'Fleur de sel', 'Eau gazeuse', 'Huile de sésame'];
+      const ing_notes = ['', '', '', '', '', 'Pour l’eau de cuisson', 'Pour la croûte'];
+      const created = await post('/recipes/new', { title: 'Recette avec basiques', ing_name, ing_notes });
+      assert.equal(created.status, 303);
+      const path = created.headers.get('location');
+      const id = Number(path.split('/').pop());
+      const { code } = db.$client.prepare('SELECT code FROM recipes WHERE id = ?').get(id);
+      const shoppingNames = db.$client.prepare('SELECT name FROM shopping_items WHERE recipe_id = ? ORDER BY id').pluck();
+      const expected = ing_name.slice(6);
+
+      assert.equal((await post(`${path}?/addToShopping`, {})).status, 303);
+      assert.deepEqual(shoppingNames.all(id), expected);
+      assert.match(await (await get(path)).text(), /Huile d’olive extra-vierge/);
+
+      assert.equal((await post('/scan?/add', { code, force: '1' })).status, 200);
+      assert.deepEqual(shoppingNames.all(id), [...expected, ...expected]);
+
+      const weekStart = '2099-01-19';
+      assert.equal((await post('/planning?/place', { recipeId: id, weekStart, dayOfWeek: 0, meal: 'midi', servings: 2 })).status, 200);
+      assert.equal((await post('/planning?/generate', { weekStart, mode: 'append' })).status, 303);
+      assert.deepEqual(shoppingNames.all(id), [...expected, ...expected, ...expected]);
+
+      const base = await post('/recipes/new', { title: 'Assaisonnement', ing_name: 'Huile d’olive' });
+      assert.equal(base.status, 303);
+      const basePath = base.headers.get('location');
+      const onlyStaples = await post(`${basePath}?/addToShopping`, {});
+      assert.equal(onlyStaples.status, 200);
+      assert.match(await onlyStaples.text(), /Aucun ingrédient à ajouter/);
+      assert.deepEqual(shoppingNames.all(Number(basePath.split('/').pop())), []);
+
+      assert.equal((await post('/shopping?/add', { name: 'Huile d’olive' })).status, 200);
+      const manual = db.$client.prepare('SELECT name FROM shopping_items WHERE recipe_id IS NULL').pluck();
+      assert.deepEqual(manual.all(), ['Huile d’olive']);
+    });
+
     await t.test('explains OCR entry points and shows camera, gallery and search controls', async () => {
       assert.match(await (await get('/scan')).text(), /Importer une recette papier/);
       const html = await (await get('/recipes/new')).text();
