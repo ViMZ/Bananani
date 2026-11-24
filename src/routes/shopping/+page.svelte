@@ -90,23 +90,12 @@
         <ul class="space-y-2">
           {#each groups as group (group.key)}
             <li class="flex items-start gap-3 py-3 px-4 rounded bg-panna border border-umber/10 hover:border-umber/25 transition-colors">
-        <form method="POST" action="?/toggle" use:enhance class="pt-0.5">
+        <form method="POST" action="?/remove" use:enhance>
           <input type="hidden" name="ids" value={group.ids.join(',')} />
-          <input type="hidden" name="checked" value={group.checked ? '0' : '1'} />
-          <button
-            type="submit"
-            class="w-5 h-5 border rounded-sm flex items-center justify-center transition-all
-                   {group.checked
-                     ? 'bg-oliva border-oliva shadow-soft'
-                     : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
-            role="checkbox" aria-checked={group.checked}
-            aria-label={group.checked ? `Remettre ${group.label} à acheter` : `Marquer ${group.label} comme acheté`}
-          >
-            {#if group.checked}
-              <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 6 L5 9 L10 3" />
-              </svg>
-            {/if}
+          <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label={`Exclure ${group.label} de la liste`}>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+            </svg>
           </button>
         </form>
         <div class="flex-1 {group.checked ? 'line-through text-sepia/60' : ''}">
@@ -135,12 +124,23 @@
             <div class="text-sm text-sepia italic mt-0.5">{group.notes.join(' · ')}</div>
           {/if}
         </div>
-        <form method="POST" action="?/remove" use:enhance>
+        <form method="POST" action="?/toggle" use:enhance class="pt-0.5">
           <input type="hidden" name="ids" value={group.ids.join(',')} />
-          <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label={`Exclure ${group.label} de la liste`}>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
-            </svg>
+          <input type="hidden" name="checked" value={group.checked ? '0' : '1'} />
+          <button
+            type="submit"
+            class="w-5 h-5 border rounded-sm flex items-center justify-center transition-all
+                   {group.checked
+                     ? 'bg-oliva border-oliva shadow-soft'
+                     : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
+            role="checkbox" aria-checked={group.checked}
+            aria-label={group.checked ? `Remettre ${group.label} à acheter` : `Marquer ${group.label} comme acheté`}
+          >
+            {#if group.checked}
+              <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 6 L5 9 L10 3" />
+              </svg>
+            {/if}
           </button>
         </form>
       </li>
@@ -167,23 +167,12 @@
         <ul class="space-y-2">
           {#each group.lines as line (line.ids.join(','))}
             <li class="flex items-start gap-3 py-3 px-4 rounded bg-panna border border-umber/10 hover:border-umber/25 transition-colors">
-              <form method="POST" action="?/toggle" use:enhance class="pt-0.5">
+              <form method="POST" action="?/remove" use:enhance>
                 <input type="hidden" name="ids" value={line.ids.join(',')} />
-                <input type="hidden" name="checked" value={line.checked ? '0' : '1'} />
-                <button
-                  type="submit"
-                  class="w-5 h-5 border rounded-sm flex items-center justify-center transition-all
-                         {line.checked
-                           ? 'bg-oliva border-oliva shadow-soft'
-                           : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
-                  role="checkbox" aria-checked={line.checked}
-                  aria-label={line.checked ? `Remettre ${line.name} à acheter` : `Marquer ${line.name} comme acheté`}
-                >
-                  {#if line.checked}
-                    <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M2 6 L5 9 L10 3" />
-                    </svg>
-                  {/if}
+                <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label={`Exclure ${line.name} de la liste`}>
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+                  </svg>
                 </button>
               </form>
               <div class="flex-1 {line.checked ? 'line-through text-sepia/60' : ''}">
@@ -202,12 +191,23 @@
                   <div class="text-sm text-sepia italic mt-0.5">{line.notes.join(' · ')}</div>
                 {/if}
               </div>
-              <form method="POST" action="?/remove" use:enhance>
+              <form method="POST" action="?/toggle" use:enhance class="pt-0.5">
                 <input type="hidden" name="ids" value={line.ids.join(',')} />
-                <button class="text-sepia/60 hover:text-terra p-1 transition-colors" aria-label={`Exclure ${line.name} de la liste`}>
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                    <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
-                  </svg>
+                <input type="hidden" name="checked" value={line.checked ? '0' : '1'} />
+                <button
+                  type="submit"
+                  class="w-5 h-5 border rounded-sm flex items-center justify-center transition-all
+                         {line.checked
+                           ? 'bg-oliva border-oliva shadow-soft'
+                           : 'bg-panna border-umber/40 hover:border-mare hover:bg-mare-soft/30'}"
+                  role="checkbox" aria-checked={line.checked}
+                  aria-label={line.checked ? `Remettre ${line.name} à acheter` : `Marquer ${line.name} comme acheté`}
+                >
+                  {#if line.checked}
+                    <svg class="w-3 h-3 text-panna" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M2 6 L5 9 L10 3" />
+                    </svg>
+                  {/if}
                 </button>
               </form>
             </li>
