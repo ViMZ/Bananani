@@ -12,6 +12,7 @@ test('reads a complete linked recipe from schema.org, preserving ingredient and 
   const schema = { '@graph': [{ '@type': 'Article' }, {
     '@type': ['Thing', 'https://schema.org/Recipe'],
     name: 'Gâteau &amp; pommes',
+    description: 'Un dessert aux pommes.',
     author: [{ name: 'Marie' }],
     recipeYield: ['4 personnes', '1 gâteau'],
     recipeIngredient: ['250 g de farine', '1½ c. à s. d’huile', '2 à 3 pommes', '½ tasse de sucre'],
@@ -27,6 +28,7 @@ test('reads a complete linked recipe from schema.org, preserving ingredient and 
     '<script type="application/ld+json">' + JSON.stringify(schema) + '</script>';
   const result = extractLinkedRecipe(html);
   assert.equal(result.recipe.title, 'Gâteau & pommes');
+  assert.ok(!Object.hasOwn(result.recipe, 'description'));
   assert.equal(result.recipe.owner, 'Marie');
   assert.equal(result.recipe.servings, 4);
   assert.equal(result.recipe.instructions,

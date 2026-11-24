@@ -4,7 +4,7 @@ import { analyzeRecipe, improvePreparation, reviewRecipe, validateReview, REVIEW
 import { validateRecipe } from '../src/lib/server/recipe-ocr.js';
 import { CATEGORIES } from '../src/lib/ingredients/categories.js';
 
-const annotation = { isRecipe: true, title: 'Pâtes à la tomate', description: '', owner: '', servings: null, instructions: '',
+const annotation = { isRecipe: true, title: 'Pâtes à la tomate', owner: '', servings: null, instructions: '',
   ingredients: [{ name: 'Pâtes', quantity: null, unit: '', notes: '' }, { name: 'Tomates', quantity: null, unit: '', notes: '' }, { name: 'Imprimer ce document', quantity: null, unit: '', notes: '' }] };
 const row = (sourceIds, name, quantity, unit, category = 'Épicerie salée') => ({ sourceIds, name, quantity, unit, categoryId: CATEGORIES.indexOf(category), notes: '', brand: '', productReference: '' });
 const reviewed = { ...annotation, description: 'Pâtes avec une sauce tomate maison.', servings: 4,
@@ -25,8 +25,10 @@ test('runs OCR then a structured culinary review using only extracted text', asy
     assert.equal(url, 'https://api.mistral.ai/v1/chat/completions');
     assert.equal(request.model, REVIEW_MODEL);
     assert.equal(request.response_format.type, 'json_schema');
+    assert.ok(!Object.hasOwn(request.response_format.json_schema.schema.properties, 'description'));
     const data = JSON.parse(request.messages[1].content);
     assert.equal(data.text, source.text);
+    assert.ok(!Object.hasOwn(data.recipe, 'description'));
     assert.equal(data.ingredients[0].quantity, null);
     assert.doesNotMatch(options.body, /data:image|c2VjcmV0/);
     assert.match(request.messages[0].content, /jamais des instructions/);
@@ -34,6 +36,8 @@ test('runs OCR then a structured culinary review using only extracted text', asy
   });
   assert.equal(calls.length, 2);
   assert.equal(result.recipe.servings, 4);
+  assert.ok(!Object.hasOwn(result.recipe, 'description'));
+  assert.ok(!result.review.suggestedFields.includes('description'));
   assert.equal(result.ingredients.length, 2);
   assert.equal(result.original.ingredients.length, 3);
   assert.equal(result.original.recipe.servings, '');
@@ -94,15 +98,14 @@ test('keeps alternatives as one grocery line without mutating source or model ou
 });
 
 test('discards invented dietary claims while preserving explicit source constraints', () => {
-  const proposal = { ...reviewed, title: 'Pâtes végétariennes', description: 'Version sans lactose.',
+  const proposal = { ...reviewed, title: 'Pâtes végétariennes',
     ingredients: [{ ...reviewed.ingredients[0], notes: 'Remplacer par du lait végétal.' }], explanations: ['Adaptation sans lactose.'] };
   const result = validateReview(proposal, source);
   assert.equal(result.recipe.title, source.recipe.title);
-  assert.equal(result.recipe.description, '');
   assert.equal(result.ingredients[0].notes, '');
-  assert.ok(result.review.explanations.some(v => /écartée/.test(v)));
-  const explicit = { ...source, text: source.text + '\nVersion sans lactose.' };
-  assert.equal(validateReview(proposal, explicit).recipe.description, 'Version sans lactose.');
+  assert.ok(result.review.explanations.some(v => /écarté/.test(v)));
+  const explicit = { ...source, text: source.text + '\nVersion végétarienne.' };
+  assert.equal(validateReview(proposal, explicit).recipe.title, 'Pâtes végétariennes');
 });
 
 test('rejects invalid references, units, portions and malformed model values', () => {

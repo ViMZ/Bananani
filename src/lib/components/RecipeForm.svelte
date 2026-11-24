@@ -42,7 +42,7 @@
   let lastImport;
   let scanPhase = $state('upload');
   let scanPreview = $derived(scanUseOriginal && scanResult?.original ? scanResult.original : scanResult);
-  const suggestionLabels = { title: 'titre', description: 'description', owner: 'auteur', servings: 'personnes',
+  const suggestionLabels = { title: 'titre', owner: 'auteur', servings: 'personnes',
     name: 'nom', quantity: 'quantité', unit: 'unité', notes: 'notes', brand: 'marque', productReference: 'référence' };
   let preparingSave = $state(false);
 
@@ -116,8 +116,8 @@
   }
 
   function applyScan() {
-    const { title, description, owner, servings, instructions } = scanPreview.recipe;
-    fields = { title, description, owner, servings, instructions };
+    const { title, owner, servings, instructions } = scanPreview.recipe;
+    fields = { ...fields, title, owner, servings, instructions };
     items = scanPreview.ingredients.map((i) => ({
       ...blank(), ...i,
       categoryName: normalizeName(i.name),
@@ -409,7 +409,7 @@
 
       <div class="grid sm:grid-cols-[1fr_140px] gap-4">
         <div>
-          <label class="label" for="description">Description courte</label>
+          <label class="label" for="description">Commentaire</label>
           <input class="input italic" id="description" name="description" bind:value={fields.description} placeholder="ex. Recette de la nonna" />
         </div>
         <div>

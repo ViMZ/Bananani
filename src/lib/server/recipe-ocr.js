@@ -3,7 +3,7 @@ import { UNITS, canonicalUnit } from '../ingredients/units.js';
 const string = { type: 'string' };
 const object = (properties) => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
 export const recipeSchema = object({
-  isRecipe: { type: 'boolean' }, title: string, description: string, owner: string,
+  isRecipe: { type: 'boolean' }, title: string, owner: string,
   servings: { type: ['integer', 'null'] }, instructions: string,
   ingredients: { type: 'array', items: object({ name: string, quantity: { type: ['number', 'null'] }, unit: string, notes: string }) }
 });
@@ -16,7 +16,7 @@ export function validateRecipe(value) {
   if (value.ingredients.length > 100) throw new Error('Trop d’ingrédients : photographie une seule recette.');
   const result = {
     recipe: {
-      title: clean(value.title, 300), description: clean(value.description, 2000), owner: clean(value.owner, 200),
+      title: clean(value.title, 300), owner: clean(value.owner, 200),
       servings: Number.isInteger(value.servings) && value.servings >= 1 && value.servings <= 50 ? value.servings : '',
       instructions: clean(value.instructions, 30000)
     },

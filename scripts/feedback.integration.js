@@ -64,13 +64,15 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       const html = await (await get(`/recipes/${recipeId}`)).text();
       assert.ok(html.indexOf('Pâtes</span>') < html.indexOf('Saumon</span>'));
       assert.match(html, /pièces/);
-      const data = form({ title: 'Pâtes au saumon', servings: 4, instructions: 'Enfourner 25 min à 180 °C.',
+      const data = form({ title: 'Pâtes au saumon', description: 'Doubler la sauce la prochaine fois.', servings: 4, instructions: 'Enfourner 25 min à 180 °C.',
         ing_name: ['Œufs', 'Pâtes'], ing_quantity: [4, 300], ing_unit: ['pièce', 'g'] });
       data.set('photo', new File([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6n0UAAAAASUVORK5CYII=', 'base64')], 'dish.png', { type: 'image/png' }));
       const edited = await fetch(`${origin}/recipes/${recipeId}/edit`, { method: 'POST', redirect: 'manual', headers: { Cookie: cookie, Origin: origin, Accept: 'text/html' }, body: data });
       assert.equal(edited.status, 303);
       const updated = await (await get(`/recipes/${recipeId}`)).text();
       assert.ok(updated.indexOf('Œufs</span>') < updated.indexOf('Pâtes</span>'));
+      assert.match(updated, /Doubler la sauce la prochaine fois/);
+      assert.match(await (await get(`/recipes/${recipeId}/edit`)).text(), />Commentaire<\/label>/);
       assert.match(updated, /\/uploads\/.*\.png/);
       data.set('photo', new File(['unsupported'], 'dish.heic', { type: 'image/heic' }));
       const unsupported = await fetch(`${origin}/recipes/${recipeId}/edit`, { method: 'POST', redirect: 'manual', headers: { Cookie: cookie, Origin: origin, Accept: 'text/html' }, body: data });
@@ -252,6 +254,51 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.deepEqual(manual.all(), ['Huile d’olive']);
     });
 
+    await t.test('removes all shopping rows for one recipe, even with a shared ingredient and title', async () => {
+      const response = await post('/recipes/new', { title: 'Pâtes au saumon',
+        ing_name: ['Pâtes', 'Champignons'], ing_quantity: [125, 250], ing_unit: ['g', 'g'] });
+      assert.equal(response.status, 303);
+      const homonymId = Number(response.headers.get('location').split('/').pop());
+      for (const id of [recipeId, recipeId, homonymId]) {
+        assert.equal((await post(`/recipes/${id}?/addToShopping`, { force: 1 })).status, 303);
+      }
+      await post('/shopping?/add', { name: 'Pâtes', quantity: 50, unit: 'g' });
+      const print = async () => (await get('/shopping/print')).text();
+      assert.match(await print(), /775 g/);
+
+      const recipeRows = db.$client.prepare('SELECT id FROM shopping_items WHERE recipe_id = ?');
+      const before = recipeRows.all(recipeId);
+      await post('/shopping?/removeRecipe', { recipeId }, otherCookie);
+      assert.deepEqual(recipeRows.all(recipeId), before);
+      await post('/shopping?/remove', { id: before[0].id });
+      await post('/shopping?/toggle', { id: before[1].id, checked: 1 });
+      assert.equal((await post('/shopping?/removeRecipe', { recipeId })).status, 200);
+      assert.deepEqual(recipeRows.all(recipeId), []);
+      assert.equal(recipeRows.all(homonymId).length, 2);
+      assert.match(await print(), /175 g/);
+      assert.match(await print(), /Champignons/);
+      assert.equal((await get(`/recipes/${recipeId}`)).status, 200);
+
+      const insertSnapshot = db.$client.prepare("INSERT INTO shopping_items (user_id, recipe_title, name) SELECT id, 'Pâtes au saumon', 'Saumon' FROM users WHERE username = ?");
+      insertSnapshot.run('feedback');
+      insertSnapshot.run('other');
+      assert.equal((await post('/shopping?/removeRecipe', { recipeTitle: 'Pâtes au saumon' })).status, 200);
+      assert.doesNotMatch(await print(), />Saumon<\/span>/);
+      assert.match(await (await get('/shopping/print', otherCookie)).text(), />Saumon<\/span>/);
+      assert.match(await print(), /175 g/);
+    });
+
+    await t.test('requires confirmation to clear shopping and only clears the current account', async () => {
+      const html = await (await get('/shopping')).text();
+      assert.match(html, /Vider la liste de courses \?/);
+      assert.match(html, /name="confirmed" value="1"/);
+      assert.equal((await post('/shopping?/clearAll', {})).status, 400);
+      assert.match(await (await get('/shopping')).text(), /Champignons dans le panier/);
+      assert.equal((await post('/shopping?/clearAll', { confirmed: 1 })).status, 200);
+      assert.match(await (await get('/shopping')).text(), /Liste vide/);
+      assert.match(await (await get('/shopping', otherCookie)).text(), /Saumon dans le panier/);
+    });
+
     await t.test('explains OCR entry points and shows camera, gallery and search controls', async () => {
       assert.match(await (await get('/scan')).text(), /Importer une recette papier/);
       const html = await (await get('/recipes/new')).text();
@@ -261,6 +308,7 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.match(html, /fiche personnelle/);
       assert.match(html, /Importer le lien/);
       assert.match(html, /Ajouter des images/);
+      assert.match(html, />Commentaire<\/label>/);
       assert.equal((await post('/recipes/ocr', {})).status, 400);
     });
 
@@ -273,6 +321,8 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
         assert.equal(response.status, 200);
         const result = await response.json();
         assert.equal(result.recipe.instructions, '');
+        assert.ok(!Object.hasOwn(result.recipe, 'description'));
+        assert.ok(!Object.hasOwn(result.original.recipe, 'description'));
         assert.equal(result.review.status, marker ? 'unavailable' : 'complete');
         assert.equal(result.original.ingredients.length, 3);
         if (marker) {

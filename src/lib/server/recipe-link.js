@@ -187,8 +187,7 @@ function recipeFromMarkup(node) {
   const ingredients = [node.recipeIngredient].flat().map(plainText).filter(Boolean).map(parseIngredient);
   if (!title || !instructions || !ingredients.length || ingredients.length > 100 || instructions.length > 30000) return null;
   const owner = [node.author].flat().map(author => plainText(author?.name ?? author)).filter(Boolean).join(', ');
-  return validateRecipe({ isRecipe: true, title, instructions, ingredients,
-    description: plainText(node.description), owner, servings: servingsOf(node.recipeYield) });
+  return validateRecipe({ isRecipe: true, title, instructions, ingredients, owner, servings: servingsOf(node.recipeYield) });
 }
 
 function recipeFromJson(text) {

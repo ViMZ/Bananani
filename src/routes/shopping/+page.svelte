@@ -42,6 +42,7 @@
   $effect(() => {
     if (addModalOpen && nameInput) nameInput.focus();
   });
+  let clearDialog = $state(null);
 </script>
 
 {#snippet shoppingItem({ ids, name, checked, removedUntil, quantity, recipeCount = 0 }, details)}
@@ -142,15 +143,23 @@
         <path d="M6 14h12v7H6z" />
       </svg>
     </a>
-    <form method="POST" action="?/clearAll" use:enhance>
-      <button type="submit" class="btn-secondary size-8 p-0 text-terra disabled:opacity-50" aria-label="Vider la liste" title="Vider la liste" disabled={!hasActiveItems}>
-        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6m4-6v6" />
-        </svg>
-      </button>
-    </form>
+    <button type="button" class="btn-secondary size-8 p-0 text-terra disabled:opacity-50" aria-label="Vider la liste" title="Vider la liste" disabled={!hasActiveItems} onclick={() => clearDialog.showModal()}>
+      <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6m4-6v6" />
+      </svg>
+    </button>
   </div>
 </div>
+
+<dialog bind:this={clearDialog} class="card no-print m-auto w-[calc(100%-2rem)] max-w-md backdrop:bg-umber/50" aria-labelledby="clear-title" aria-describedby="clear-description">
+  <h2 id="clear-title" class="font-display italic text-2xl text-umber">Vider la liste de courses ?</h2>
+  <p id="clear-description" class="mt-2 text-sm text-sepia">Tous les articles de la liste seront supprimés.</p>
+  <form method="POST" action="?/clearAll" use:enhance={() => { clearDialog.close(); }} class="mt-5 flex flex-wrap justify-end gap-2">
+    <input type="hidden" name="confirmed" value="1" />
+    <button type="button" class="btn-ghost" onclick={() => clearDialog.close()}>Annuler</button>
+    <button type="submit" class="btn-danger">Vider la liste</button>
+  </form>
+</dialog>
 
 {#if visibleItems.length === 0}
   <div class="text-center py-16">
@@ -201,7 +210,7 @@
   </div>
 {:else}
   <div class="space-y-10">
-    {#each recipeGroups as group (group.title)}
+    {#each recipeGroups as group (group.key)}
       <section>
         <div class="flex items-baseline gap-4 mb-2">
           <h2 class="h-display italic text-2xl text-mare">{group.title}</h2>
@@ -212,6 +221,20 @@
           {/if}
           <span class="flex-1 h-px bg-mare/30"></span>
           <span class="h-eyebrow text-mare">{group.lines.length}</span>
+          {#if group.isRecipe && group.lines.some((line) => !line.removedUntil)}
+            <form method="POST" action="?/removeRecipe" use:enhance class="self-center">
+              {#if group.recipeId !== null}
+                <input type="hidden" name="recipeId" value={group.recipeId} />
+              {:else}
+                <input type="hidden" name="recipeTitle" value={group.title} />
+              {/if}
+              <button type="submit" class="btn-secondary size-9 p-0 text-terra" aria-label={`Retirer « ${group.title} » et ses ingrédients de la liste`} title="Retirer la recette">
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                  <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+                </svg>
+              </button>
+            </form>
+          {/if}
         </div>
 
         <ul class="space-y-2">

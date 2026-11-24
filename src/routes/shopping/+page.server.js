@@ -1,3 +1,4 @@
+import { fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { shoppingItems, ingredientCatalog, recipes } from '$lib/server/db/schema';
 import { eq, and, inArray, isNull, lte } from 'drizzle-orm';
@@ -72,7 +73,24 @@ export const actions = {
       .set({ removedUntil: null })
       .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids), eq(shoppingItems.removedUntil, removedUntil)));
   },
-  clearAll: async ({ locals }) => {
+  removeRecipe: async ({ request, locals }) => {
+    const formData = await request.formData();
+    const rawRecipeId = formData.get('recipeId');
+    const recipeId = Number(rawRecipeId);
+    const recipeTitle = formData.get('recipeTitle');
+    let group;
+    if (typeof rawRecipeId === 'string' && Number.isSafeInteger(recipeId) && recipeId > 0) {
+      group = eq(shoppingItems.recipeId, recipeId);
+    } else if (rawRecipeId === null && typeof recipeTitle === 'string' && recipeTitle) {
+      group = and(isNull(shoppingItems.recipeId), eq(shoppingItems.recipeTitle, recipeTitle));
+    } else {
+      return fail(400);
+    }
+    await db.delete(shoppingItems).where(and(eq(shoppingItems.userId, locals.user.id), group));
+  },
+  clearAll: async ({ request, locals }) => {
+    const formData = await request.formData();
+    if (formData.get('confirmed') !== '1') return fail(400);
     await db.delete(shoppingItems).where(eq(shoppingItems.userId, locals.user.id));
   },
   add: async ({ request, locals }) => {

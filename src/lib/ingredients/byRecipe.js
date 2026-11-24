@@ -2,7 +2,7 @@
  * Regroupement de la liste de courses « par recette ».
  *
  * Quand une même recette a été ajoutée plusieurs fois, ses lignes shopping_items
- * sont dupliquées (un lot par ajout, identifiable par `addedAt`). Ce module les
+ * sont dupliquées (un lot par ajout, identifiable par `batchId`). Ce module les
  * fusionne pour rendre la multiplicité explicite : la recette apparaît une seule
  * fois, avec le nombre d'ajouts (`instances`), et chaque ingrédient une seule
  * fois avec sa quantité unitaire et le facteur (« 200 × 2 »).
@@ -32,6 +32,8 @@ import { resolveUnit, formatQuantity } from './units.js';
 
 /**
  * @typedef {Object} RecipeGroup
+ * @property {string} key
+ * @property {number|null} recipeId   null pour un instantané dont la recette a été supprimée ou un ajout manuel
  * @property {string} title
  * @property {boolean} isRecipe      false pour le groupe « ajouts manuels »
  * @property {number|null} servings  portions de la recette (null si inconnu)
@@ -50,12 +52,14 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
   const groups = new Map();
 
   for (const item of items) {
-    const isRecipe = !!item.recipeTitle;
-    const title = isRecipe ? item.recipeTitle : manualLabel;
-    let g = groups.get(title);
+    const recipeId = item.recipeId ?? null;
+    const isRecipe = recipeId !== null || !!item.recipeTitle;
+    const title = isRecipe ? item.recipeTitle || 'Recette' : manualLabel;
+    const key = recipeId !== null ? `recipe:${recipeId}` : isRecipe ? `snapshot:${title}` : 'manual';
+    let g = groups.get(key);
     if (!g) {
-      g = { title, isRecipe, servings: null, items: [] };
-      groups.set(title, g);
+      g = { key, recipeId, title, isRecipe, servings: null, items: [] };
+      groups.set(key, g);
     }
     if (g.servings == null && item.servings != null) g.servings = item.servings;
     g.items.push(item);
@@ -65,6 +69,8 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
     // Ajouts manuels : entrées indépendantes, jamais fusionnées (une ligne par item).
     if (!g.isRecipe) {
       return {
+        key: g.key,
+        recipeId: null,
         title: g.title,
         isRecipe: false,
         servings: null,
@@ -92,7 +98,7 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
       };
     }
 
-    // Nombre d'ajouts = nombre de lots distincts (CURRENT_TIMESTAMP partagé par lot).
+    // Les anciens ajouts sans batchId partagent leur horodatage au sein d’un lot.
     const batches = new Map();
     for (const i of g.items) {
       batches.set(i.batchId || i.addedAt, i.servings ?? null);
@@ -153,6 +159,8 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
     });
 
     return {
+      key: g.key,
+      recipeId: g.recipeId,
       title: g.title,
       isRecipe: true,
       servings: g.servings,

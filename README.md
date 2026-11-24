@@ -58,6 +58,8 @@ portions de leur recette jusqu’à leur premier ajustement.
 Une case vide dans les courses signifie « à acheter » ; cochée, elle signifie
 « dans le panier ou acheté ». Décocher remet l’article à acheter. La corbeille
 exclut un article.
+Dans la vue « Recette », la corbeille à côté d’un titre retire tous les ingrédients
+de cette recette des courses. La corbeille générale demande une confirmation.
 L’impression contient uniquement les articles non cochés. Les unités dénombrables
 s’accordent avec les quantités affichées ; les symboles g, ml… restent invariables.
 
@@ -124,7 +126,8 @@ ouvre la lecture OCR pour les documents sans code.
 
 Après l’OCR, une relecture par `mistral-small-latest` connaît le schéma de Bananani
 et propose une recette structurée : nettoyage du bruit OCR et des doublons,
-correction des noms, portions et quantités manquantes, description et rayons.
+correction des noms, portions et quantités manquantes, et rayons.
+Le champ « Commentaire » est réservé à la saisie manuelle.
 Les étapes sont transcrites dans l’ordre de la fiche avec des retours à la ligne
 et des corrections d’orthographe évidentes. Une fiche sans étapes lisibles donne
 une préparation vide. Les variantes et les contraintes de la fiche sont conservées ;

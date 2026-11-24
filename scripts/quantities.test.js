@@ -43,6 +43,20 @@ test('4 people plus 2 people produce groceries and recipe totals for 6 portions'
   assert.equal(aggregateItems(items)[0].checked, true);
 });
 
+test('shopping groups follow recipe identity even when titles collide or change', () => {
+  const groups = groupByRecipe([
+    { id: 1, recipeId: 1, recipeTitle: 'Pâtes', name: 'Fusilli' },
+    { id: 2, recipeId: 2, recipeTitle: 'Pâtes', name: 'Penne' },
+    { id: 3, recipeId: 1, recipeTitle: 'Salade de pâtes', name: 'Tomates' },
+    { id: 4, recipeTitle: 'Pâtes', name: 'Spaghetti' },
+    { id: 5, name: 'Basilic' }
+  ], { manualLabel: 'Pâtes' });
+  assert.equal(new Set(groups.map(group => group.key)).size, 4);
+  assert.deepEqual(groups.map(group => [group.recipeId, group.isRecipe, group.lines.map(line => line.name)]), [
+    [1, true, ['Fusilli', 'Tomates']], [2, true, ['Penne']], [null, true, ['Spaghetti']], [null, false, ['Basilic']]
+  ]);
+});
+
 test('aggregated shopping items keep their alphabetical order when checked or unchecked', () => {
   const items = [
     { id: 1, name: 'Tomates', checked: false },

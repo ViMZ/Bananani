@@ -77,7 +77,7 @@
       </div>
     {:else}
       <div class="space-y-8">
-        {#each recipeGroups as group (group.title)}
+        {#each recipeGroups as group (group.key)}
           <section>
             <div class="flex items-baseline gap-4 mb-3">
               <h2 class="h-display italic text-xl text-mare">{group.title}</h2>

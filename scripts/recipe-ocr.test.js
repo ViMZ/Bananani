@@ -22,11 +22,13 @@ test('extracts annotations and sends image only to Mistral', async () => {
     const body = JSON.parse(options.body);
     assert.equal(body.document.type, 'image_url');
     assert.equal(body.document_annotation_format.type, 'json_schema');
+    assert.ok(!Object.hasOwn(body.document_annotation_format.json_schema.schema.properties, 'description'));
     assert.match(body.document_annotation_prompt, /transcris mot pour mot/);
     assert.match(body.document_annotation_prompt, /fautes d'orthographe évidentes/);
-    return Response.json({ document_annotation: JSON.stringify(sample) });
+    return Response.json({ document_annotation: JSON.stringify({ ...sample, description: 'Crêpes moelleuses.' }) });
   });
   assert.equal(result.recipe.title, 'Crêpes');
+  assert.ok(!Object.hasOwn(result.recipe, 'description'));
 });
 test('provider failures never disclose upstream details', async () => {
   await assert.rejects(extractRecipe(Buffer.from('x'), 'image/png', 'secret', async () => new Response('sensitive', { status: 401 })), /accès Mistral/);

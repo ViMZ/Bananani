@@ -10,8 +10,8 @@ import { shoppingItems } from '$lib/server/db/schema';
 const preparationAttempts = new Map();
 
 function preparationSource({ recipe, ingredients }) {
-  const { title, description, servings, instructions } = recipe;
-  return { title, description, servings, instructions, ingredients: ingredients.map(({ name, quantity, unit, notes }) => ({
+  const { title, servings, instructions } = recipe;
+  return { title, servings, instructions, ingredients: ingredients.map(({ name, quantity, unit, notes }) => ({
     name, quantity: quantity || null, unit, notes
   })) };
 }

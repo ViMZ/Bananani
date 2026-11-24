@@ -21,7 +21,7 @@ globalThis.fetch = async (url, options) => {
     const slow = bytes.includes(Buffer.from('slow-import'));
     if (slow) await new Promise(resolve => setTimeout(resolve, 80));
     const title = bytes.includes(Buffer.from('review-unavailable')) ? 'Relecture indisponible' : slow ? 'Import lent' : 'Pâtes à la tomate';
-    return Response.json({ document_annotation: { isRecipe: true, title, description: '', owner: '', servings: null, instructions: '',
+    return Response.json({ document_annotation: { isRecipe: true, title, description: 'Description OCR inattendue.', owner: '', servings: null, instructions: '',
       ingredients: [{ name: 'Pâtes', quantity: null, unit: '', notes: '' }, { name: 'Tomates', quantity: null, unit: '', notes: '' }, { name: 'Imprimer ce document', quantity: null, unit: '', notes: '' }] },
     pages: [{ markdown: `${title}\nPâtes\nTomates\nImprimer ce document` }] });
   }
@@ -29,6 +29,7 @@ globalThis.fetch = async (url, options) => {
     const source = JSON.parse(request.messages[1].content);
     if (request.response_format.json_schema.name === 'improved_preparation') {
       if (!source.ingredients.some(ingredient => ingredient.name === 'Pâtes')) throw new Error('Missing saved ingredients in preparation request');
+      if (Object.hasOwn(source, 'description')) throw new Error('Unexpected personal comment in preparation request');
       return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({
         instructions: '1. Préchauffer le four à 180 °C.\n2. Enfourner pendant 25 min.'
       }) } }] });
