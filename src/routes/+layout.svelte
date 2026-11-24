@@ -1,11 +1,35 @@
 <script>
   import '../app.css';
+  import { afterNavigate } from '$app/navigation';
+  import { navigating } from '$app/state';
   import { page } from '$app/stores';
 
   let { children, data } = $props();
 
   let userLabel = $derived(data?.user ? data.user.displayName || data.user.username : '');
   let headerHeight = $state(64);
+  let mobileNavTimeout;
+
+  afterNavigate(() => clearTimeout(mobileNavTimeout));
+
+  function onMobileNavClick(event) {
+    if (event.defaultPrevented || event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+    const href = event.currentTarget.href;
+    clearTimeout(mobileNavTimeout);
+
+    // Un nouveau tap peut prendre le relais d'une navigation encore en cours.
+    if (navigating.to) {
+      event.preventDefault();
+      window.location.assign(href);
+      return;
+    }
+
+    // Si le chargement côté client n'aboutit pas, demander directement la page au serveur.
+    mobileNavTimeout = setTimeout(() => {
+      if (navigating.to?.url.href === href) window.location.assign(href);
+    }, 5000);
+  }
 
   const nav = [
     { href: '/', label: 'Accueil' },
@@ -138,6 +162,7 @@
         {#each nav as item}
           <a
             href={item.href}
+            onclick={onMobileNavClick}
             class="flex flex-col items-center justify-center py-3 font-sans text-[11px] tracking-wide transition-colors
                    {isActive(item.href) ? 'text-mare font-medium' : 'text-sepia'}"
           >
