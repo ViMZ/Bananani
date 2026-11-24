@@ -1,5 +1,6 @@
 <script>
   import { onDestroy, onMount, untrack } from 'svelte';
+  import PhotoCredit from './PhotoCredit.svelte';
 
   let { initialQuery = '', autoSearch = false, onSelect } = $props();
   let query = $state(untrack(() => initialQuery.trim().slice(0, 100)));
@@ -65,14 +66,12 @@
     <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {#each images as image (image.pageId)}
         {@const title = image.title.replace(/\.[^.]+$/, '').replaceAll('_', ' ')}
-        <li class="min-w-0 rounded-soft border border-umber/10 bg-linen p-2">
-          <button type="button" class="group block w-full overflow-hidden rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-mare"
+        <li class="relative min-w-0">
+          <button type="button" class="block w-full overflow-hidden rounded-soft border border-umber/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-mare"
             aria-label={`Choisir ${title}`} onclick={() => onSelect(image)}>
-            <img src={image.url} alt="" class="aspect-square w-full rounded bg-sand object-cover" loading="lazy" />
-            <span class="mt-1.5 block break-words text-xs font-medium group-hover:underline">{title}</span>
+            <img src={image.url} alt="" class="aspect-square w-full bg-sand object-cover" loading="lazy" />
           </button>
-          <a class="mt-1 block break-words text-[11px] text-sepia underline underline-offset-2" href={image.source}
-            target="_blank" rel="noreferrer">{image.author} · {image.license}</a>
+          <PhotoCredit {image} />
         </li>
       {/each}
     </ul>

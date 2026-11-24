@@ -162,13 +162,13 @@
   </svg>
 {/snippet}
 
-<div class="rounded-card border border-umber/15 p-3 shadow-soft-lg {recipe.photoPath ? 'bg-panna' : 'bg-sand'}">
+<div class="relative rounded-card border border-umber/15 p-3 shadow-soft-lg {recipe.photoPath ? 'bg-panna' : 'bg-sand'}">
   <button type="button" class="group relative block w-full overflow-hidden rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-mare"
     aria-haspopup="dialog" aria-label={photoAction} onclick={open}>
     {#if recipe.photoPath}
       <img src={recipe.photoPath} alt={recipe.title} class="aspect-square w-full object-cover motion-safe:transition-transform motion-safe:duration-300 motion-safe:group-hover:scale-[1.02]" />
-      <span class="no-print absolute bottom-3 right-3 inline-flex items-center gap-2 rounded bg-panna px-3 py-2 text-xs font-medium text-umber shadow-soft group-hover:bg-linen">
-        {@render icon('camera', 'size-4')} {photoAction}
+      <span class="no-print absolute bottom-3 right-3 grid size-10 place-items-center rounded-full bg-panna text-umber shadow-soft group-hover:bg-linen">
+        {@render icon('camera', 'size-5')}
       </span>
     {:else}
       <span class="flex aspect-square flex-col items-center justify-center gap-3 bg-linen p-4 text-center text-mare transition-colors group-hover:bg-panna/70">
@@ -180,7 +180,7 @@
       </span>
     {/if}
   </button>
-  <PhotoCredit {recipe} />
+  <div class="pointer-events-none absolute inset-3"><PhotoCredit {recipe} /></div>
   <p class="sr-only" role="status">{notice}</p>
 </div>
 
@@ -238,15 +238,11 @@
     {/if}
 
     {#if view === 'preview'}
-      <figure class="mx-auto max-w-72">
+      <div class="relative mx-auto max-w-72">
         <img src={localPreview || publicImage?.url} alt={publicImage?.title || 'Photo sélectionnée'}
           class="mx-auto aspect-square w-full rounded-soft bg-linen object-cover" />
-        {#if publicImage}
-          <figcaption class="mt-2 text-center text-xs text-umber/75">
-            <a href={publicImage.source} target="_blank" rel="noreferrer" class="link">{publicImage.author} · {publicImage.license}</a>
-          </figcaption>
-        {/if}
-      </figure>
+        {#if publicImage}<PhotoCredit image={publicImage} />{/if}
+      </div>
       <form method="POST" enctype="multipart/form-data" action="?/updatePhoto" use:enhance={save}
         class="flex flex-wrap justify-between gap-2 border-t border-umber/10 pt-4">
         <button type="button" class="btn-secondary disabled:opacity-60" disabled={saving} onclick={goBack}>

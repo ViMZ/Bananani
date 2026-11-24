@@ -42,7 +42,7 @@
             <div class="m-photo-frame">
               {#if c.photoPath}
                 <img class="m-photo" src={c.photoPath} alt={c.title} />
-                <PhotoCredit recipe={c} compact />
+                <PhotoCredit recipe={c} />
               {:else}
                 <div class="m-photo m-photo--empty">
                   <span class="font-display italic text-4xl text-sepia">N°</span>
@@ -55,6 +55,7 @@
               </div>
             </div>
           </div>
+          <PhotoCredit recipe={c} printOnly compact />
         </div>
       </div>
     {/each}
@@ -149,6 +150,7 @@
   }
 
   .m-photo-frame {
+    position: relative;
     flex: 1;
     min-width: 0;
     height: 100%;

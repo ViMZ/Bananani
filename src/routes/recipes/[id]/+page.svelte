@@ -1,5 +1,6 @@
 <script>
   import RecipePhoto from '$lib/components/RecipePhoto.svelte';
+  import PhotoCredit from '$lib/components/PhotoCredit.svelte';
   import { formatUnit } from '$lib/ingredients/units';
   import Sprig from '$lib/components/Sprig.svelte';
   import Ornament from '$lib/components/Ornament.svelte';
@@ -159,3 +160,5 @@
     </section>
   </div>
 </div>
+
+<PhotoCredit {recipe} printOnly />

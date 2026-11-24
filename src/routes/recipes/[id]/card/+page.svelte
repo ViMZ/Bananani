@@ -51,9 +51,9 @@
     <!-- Photo + meta -->
     <div class="grid grid-cols-[120px_1fr] md:grid-cols-[150px_1fr] gap-5 mb-4 items-start">
       {#if recipe.photoPath}
-        <div class="bg-panna p-2 shadow-soft border border-umber/15">
+        <div class="relative bg-panna p-2 shadow-soft border border-umber/15">
           <img src={recipe.photoPath} alt={recipe.title} class="w-full aspect-square object-cover" />
-        <PhotoCredit recipe={recipe} />
+          <PhotoCredit {recipe} />
         </div>
       {:else}
         <div class="bg-panna p-2 shadow-soft border border-umber/15">
@@ -135,6 +135,7 @@
           Tutti gli ingredienti<br />
           filent dans la liste de courses.
         </div>
+        <PhotoCredit {recipe} printOnly />
       </div>
 
       <div class="bg-white border border-umber/30 p-2 text-center shadow-soft shrink-0">

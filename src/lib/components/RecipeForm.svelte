@@ -373,8 +373,10 @@
         <input type="hidden" name="photo_commons_id" value={selectedImage?.pageId ?? ''} />
         {#if photoPreview || selectedImage}
           <div class="mt-3 space-y-2">
-            <img src={photoPreview || selectedImage.url} alt="Aperçu du plat choisi" class="w-40 h-40 object-cover rounded" />
-            {#if selectedImage}<p class="text-xs text-sepia">{selectedImage.author} · {selectedImage.license} · <a class="underline" href={selectedImage.source} target="_blank" rel="noreferrer">Source</a></p>{/if}
+            <div class="relative w-40">
+              <img src={photoPreview || selectedImage.url} alt="Aperçu du plat choisi" class="size-40 rounded object-cover" />
+              {#if selectedImage}<PhotoCredit image={selectedImage} />{/if}
+            </div>
             <button type="button" class="btn-ghost btn-sm" onclick={() => { clearPreview(); selectedImage = null; photoInput.value = ''; photoInfo = ''; photoError = ''; }}>Annuler ce choix</button>
           </div>
         {/if}
@@ -399,13 +401,14 @@
           </p>
         {/if}
         {#if recipe.photoPath}
-          <div class="mt-3 flex items-center gap-4 p-3 bg-sand rounded border border-umber/15">
+          <div class="relative mt-3 flex items-center gap-4 p-3 bg-sand rounded border border-umber/15"
+            class:pr-12={recipe.photoCredit && recipe.photoSource}>
             <img src={recipe.photoPath} alt={recipe.title} class="w-20 h-20 object-cover rounded shadow-soft" />
             <label class="text-sm flex items-center gap-2 cursor-pointer text-umber">
               <input type="checkbox" name="remove_photo" class="w-4 h-4 accent-terra" /> Supprimer la photo actuelle
             </label>
+            <PhotoCredit {recipe} />
           </div>
-          <PhotoCredit {recipe} />
         {/if}
       </div>
     </div>
