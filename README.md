@@ -44,7 +44,7 @@ portions de leur recette jusqu’à leur premier ajustement.
 
 Une case vide dans les courses signifie « à acheter » ; cochée, elle signifie
 « dans le panier ou acheté ». Décocher remet l’article à acheter. La corbeille
-exclut un article ; « Retirer les articles achetés » retire les lignes cochées.
+exclut un article.
 L’impression contient uniquement les articles non cochés. Les unités dénombrables
 s’accordent avec les quantités affichées ; les symboles g, ml… restent invariables.
 

@@ -102,20 +102,19 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.match(html, /450 g/);
       assert.match(html, /6 pièces/);
       assert.match(await (await get('/shopping/print?view=recipe')).text(), /6 portions au total/);
-      assert.match(html, /Case vide : à acheter/);
+      assert.doesNotMatch(html, /Comment utiliser la liste de courses/);
       const ids = db.$client.prepare("SELECT id FROM shopping_items WHERE name = 'Œufs'").all().map(i => i.id).join(',');
       await post('/shopping?/toggle', { ids, checked: '1' }, otherCookie);
       assert.equal(db.$client.prepare('SELECT SUM(checked) AS count FROM shopping_items').get().count, 0);
       await post('/shopping?/toggle', { ids, checked: '1' });
+      const checkedHtml = await (await get('/shopping')).text();
+      assert.match(checkedHtml, /aria-checked="true"/);
+      assert.doesNotMatch(checkedHtml, /Retirer les articles achetés/);
       const printed = await (await get('/shopping/print')).text();
       assert.doesNotMatch(printed, /Œufs/);
       assert.match(printed, /450 g/);
       await post('/shopping?/toggle', { ids, checked: '0' });
       assert.match(await (await get('/shopping/print')).text(), /Œufs/);
-      await post('/shopping?/toggle', { ids, checked: '1' });
-      await post('/shopping?/clearChecked', {});
-      assert.equal(db.$client.prepare("SELECT COUNT(*) AS count FROM shopping_items WHERE name = 'Œufs'").get().count, 0);
-      assert.equal(db.$client.prepare("SELECT SUM(quantity) AS total FROM shopping_items WHERE name = 'Pâtes'").get().total, 450);
     });
 
     await t.test('explains OCR entry points and shows camera, gallery and search controls', async () => {

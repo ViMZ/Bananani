@@ -55,11 +55,6 @@ export const actions = {
       .delete(shoppingItems)
       .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids)));
   },
-  clearChecked: async ({ locals }) => {
-    await db
-      .delete(shoppingItems)
-      .where(and(eq(shoppingItems.userId, locals.user.id), eq(shoppingItems.checked, true)));
-  },
   clearAll: async ({ locals }) => {
     await db.delete(shoppingItems).where(eq(shoppingItems.userId, locals.user.id));
   },

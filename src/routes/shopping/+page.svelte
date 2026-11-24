@@ -45,11 +45,6 @@
   </p>
 </header>
 
-<aside class="card-flat max-w-xl mx-auto mb-6 text-sm text-sepia space-y-2 no-print" aria-label="Comment utiliser la liste de courses">
-  <p><strong class="text-umber">Case vide : à acheter. Case cochée : déjà dans le panier ou acheté.</strong> Touche une case pour changer son état ; tu peux la décocher à tout moment.</p>
-  <p>Pour exclure un article dont tu n’as pas besoin, utilise la corbeille. « Retirer les articles achetés » supprime seulement les lignes cochées. La version imprimée contient uniquement ce qui reste à acheter.</p>
-</aside>
-
 <div class="flex justify-center mb-6 no-print">
   <div class="inline-flex rounded-full border border-umber/20 bg-panna p-1 text-sm">
     <button
@@ -66,11 +61,6 @@
 <div class="flex flex-wrap justify-center gap-2 mb-10 no-print">
   <button type="button" class="btn-secondary" onclick={() => (addModalOpen = true)}>＋ Ajouter à la main</button>
   <a href="/shopping/print?view={viewMode}" class="btn-secondary">🍋 Imprimer la liste</a>
-  {#if done > 0}
-    <form method="POST" action="?/clearChecked" use:enhance>
-      <button class="btn-secondary">Retirer les articles achetés ({done})</button>
-    </form>
-  {/if}
   {#if data.items.length > 0}
     <form method="POST" action="?/clearAll" use:enhance>
       <button class="btn-ghost text-terra hover:bg-terra/10">Tout vider</button>
