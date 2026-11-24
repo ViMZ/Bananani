@@ -92,7 +92,7 @@
   {#if !isAuthPage}
     <!-- Header desktop -->
     <header class="no-print bg-linen/80 backdrop-blur-sm border-b border-umber/15 sticky top-0 z-30" bind:offsetHeight={headerHeight}>
-      <div class="max-w-6xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-6">
+      <div class="max-w-6xl mx-auto px-4 md:px-8 py-2 flex items-center justify-between gap-6">
         <button
           type="button"
           class="group inline-flex items-center gap-2 bg-transparent border-0 p-0 text-left select-none"
@@ -107,7 +107,7 @@
           onclick={onLogoClick}
           onkeydown={onLogoKeydown}
         >
-          <span class="text-limone text-lg leading-none">✦</span>
+          <img src="/bananani-mascot.webp" alt="" width="48" height="48" class="shrink-0 pointer-events-none" draggable="false" />
           <span class="font-display italic text-3xl md:text-[28px] leading-none text-umber tracking-tight">
             Bananani
           </span>
