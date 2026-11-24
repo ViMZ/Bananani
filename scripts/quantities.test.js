@@ -42,3 +42,18 @@ test('4 people plus 2 people produce groceries and recipe totals for 6 portions'
   items[1].checked = true;
   assert.equal(aggregateItems(items)[0].checked, true);
 });
+
+test('aggregated shopping items keep their alphabetical order when checked or unchecked', () => {
+  const items = [
+    { id: 1, name: 'Tomates', checked: false },
+    { id: 2, name: 'Basilic', checked: false },
+    { id: 3, name: 'Citron', checked: false }
+  ];
+
+  for (const checked of [false, true, false]) {
+    items[1].checked = checked;
+    const groups = aggregateItems(items);
+    assert.deepEqual(groups.map(({ label }) => label), ['Basilic', 'Citron', 'Tomates']);
+    assert.equal(groups[0].checked, checked);
+  }
+});

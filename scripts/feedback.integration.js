@@ -146,6 +146,39 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.match(await (await get('/shopping/print')).text(), /Œufs/);
     });
 
+    await t.test('replaces a removed shopping item with a temporary undo row', async () => {
+      const itemIds = db.$client.prepare("SELECT id FROM shopping_items WHERE name = 'Pâtes'").all().map(({ id }) => id);
+      const ids = itemIds.join(',');
+      const readDeadline = db.$client.prepare('SELECT removed_until AS deadline FROM shopping_items WHERE id = ?');
+      const readOrder = (html) => [...html.matchAll(/aria-label="([^"]+) dans le panier"/g)].map((match) => match[1]);
+      const before = readOrder(await (await get('/shopping')).text());
+      const startedAt = Date.now();
+      assert.equal((await post('/shopping?/remove', { ids })).status, 200);
+      const removedUntil = readDeadline.get(itemIds[0]).deadline;
+      assert.ok(removedUntil >= startedAt + 5000 && removedUntil <= Date.now() + 5000);
+      assert.ok(itemIds.every((id) => readDeadline.get(id).deadline === removedUntil));
+
+      const removing = await (await get('/shopping')).text();
+      assert.match(removing, /Annuler la suppression de Pâtes/);
+      assert.deepEqual(readOrder(removing), before.filter((name) => name !== 'Pâtes'));
+      assert.doesNotMatch(await (await get('/shopping/print')).text(), /Pâtes<\/span>/);
+      assert.doesNotMatch(await (await get('/shopping', otherCookie)).text(), /Annuler la suppression de Pâtes/);
+      await post('/shopping?/undoRemove', { ids, removedUntil }, otherCookie);
+      assert.equal(readDeadline.get(itemIds[0]).deadline, removedUntil);
+      await post('/shopping?/remove', { ids });
+      assert.equal(readDeadline.get(itemIds[0]).deadline, removedUntil);
+      await post('/shopping?/undoRemove', { ids, removedUntil });
+      assert.deepEqual(readOrder(await (await get('/shopping')).text()), before);
+
+      await post('/shopping?/remove', { ids });
+      const expired = Date.now() - 1;
+      const setDeadline = db.$client.prepare('UPDATE shopping_items SET removed_until = ? WHERE id = ?');
+      for (const id of itemIds) setDeadline.run(expired, id);
+      await post('/shopping?/undoRemove', { ids, removedUntil: expired });
+      assert.doesNotMatch(await (await get('/shopping')).text(), /(?:Annuler la suppression de Pâtes|Pâtes dans le panier)/);
+      assert.equal(readDeadline.get(itemIds[0]), undefined);
+    });
+
     await t.test('explains OCR entry points and shows camera, gallery and search controls', async () => {
       assert.match(await (await get('/scan')).text(), /Importer une recette papier/);
       const html = await (await get('/recipes/new')).text();

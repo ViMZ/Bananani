@@ -17,6 +17,7 @@ import { resolveUnit, formatQuantity } from './units.js';
  * @typedef {Object} RecipeLine
  * @property {number[]} ids          ids des shopping_items fusionnés
  * @property {boolean} checked       true si toutes les lignes sont cochées
+ * @property {number|null} removedUntil échéance d'annulation pour les lignes supprimées
  * @property {string} name
  * @property {string} brand
  * @property {string} productReference
@@ -75,6 +76,7 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
           return {
             ids: [i.id],
             checked: !!i.checked,
+            removedUntil: i.removedUntil ?? null,
             name: i.name,
             brand: i.brand || '',
             productReference: i.productReference || '',
@@ -103,7 +105,7 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
     const byKey = new Map();
     for (const i of g.items) {
       const idPart = i.canonicalId != null ? `c:${i.canonicalId}` : `n:${normalizeName(i.name)}`;
-      const key = [idPart, i.brand || '', i.productReference || '', i.unit || ''].join('|');
+      const key = JSON.stringify([idPart, i.brand || '', i.productReference || '', i.unit || '', i.removedUntil ?? null]);
       let l = byKey.get(key);
       if (!l) {
         l = {
@@ -114,7 +116,8 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
           ids: [],
           qtys: [],
           notes: new Set(),
-          allChecked: true
+          allChecked: true,
+          removedUntil: i.removedUntil ?? null
         };
         byKey.set(key, l);
       }
@@ -135,6 +138,7 @@ export function groupByRecipe(items, { manualLabel = 'Ajoutés à la main' } = {
       return {
         ids: l.ids,
         checked: l.allChecked,
+        removedUntil: l.removedUntil,
         name: l.name,
         brand: l.brand,
         productReference: l.productReference,

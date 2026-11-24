@@ -1,6 +1,6 @@
 import { db } from './db/index.js';
 import { shoppingItems } from './db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { effectiveServings, scaleQuantity } from '../ingredients/portions.js';
 
@@ -28,7 +28,7 @@ export async function recipeInList(userId, recipeId) {
   const rows = await db
     .select({ id: shoppingItems.id })
     .from(shoppingItems)
-    .where(and(eq(shoppingItems.userId, userId), eq(shoppingItems.recipeId, recipeId)))
+    .where(and(eq(shoppingItems.userId, userId), eq(shoppingItems.recipeId, recipeId), isNull(shoppingItems.removedUntil)))
     .limit(1);
   return rows.length > 0;
 }

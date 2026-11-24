@@ -1,9 +1,15 @@
 import { db } from '$lib/server/db';
 import { shoppingItems, ingredientCatalog, recipes } from '$lib/server/db/schema';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, isNull, lte } from 'drizzle-orm';
 import { resolveOrCreate } from '$lib/server/ingredients/catalog';
 
+const UNDO_WINDOW_MS = 5000;
+
 export async function load({ locals }) {
+  const now = Date.now();
+  const ownItems = eq(shoppingItems.userId, locals.user.id);
+  await db.delete(shoppingItems).where(and(ownItems, lte(shoppingItems.removedUntil, now)));
+
   const rows = await db
     .select({
       item: shoppingItems,
@@ -13,14 +19,14 @@ export async function load({ locals }) {
     .from(shoppingItems)
     .leftJoin(ingredientCatalog, eq(shoppingItems.canonicalId, ingredientCatalog.id))
     .leftJoin(recipes, eq(shoppingItems.recipeId, recipes.id))
-    .where(eq(shoppingItems.userId, locals.user.id))
-    .orderBy(shoppingItems.addedAt);
+    .where(ownItems)
+    .orderBy(shoppingItems.addedAt, shoppingItems.id);
   const items = rows.map((r) => ({
     ...r.item,
     category: r.category ?? '',
     servings: r.item.servings ?? r.servings ?? null
   }));
-  return { items };
+  return { items, now };
 }
 
 /**
@@ -45,15 +51,26 @@ export const actions = {
     await db
       .update(shoppingItems)
       .set({ checked })
-      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids)));
+      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids), isNull(shoppingItems.removedUntil)));
   },
   remove: async ({ request, locals }) => {
     const formData = await request.formData();
     const ids = targetIds(formData);
     if (ids.length === 0) return;
     await db
-      .delete(shoppingItems)
-      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids)));
+      .update(shoppingItems)
+      .set({ removedUntil: Date.now() + UNDO_WINDOW_MS })
+      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids), isNull(shoppingItems.removedUntil)));
+  },
+  undoRemove: async ({ request, locals }) => {
+    const formData = await request.formData();
+    const ids = targetIds(formData);
+    const removedUntil = Number(formData.get('removedUntil'));
+    if (ids.length === 0 || !Number.isSafeInteger(removedUntil) || removedUntil <= Date.now()) return;
+    await db
+      .update(shoppingItems)
+      .set({ removedUntil: null })
+      .where(and(eq(shoppingItems.userId, locals.user.id), inArray(shoppingItems.id, ids), eq(shoppingItems.removedUntil, removedUntil)));
   },
   clearAll: async ({ locals }) => {
     await db.delete(shoppingItems).where(eq(shoppingItems.userId, locals.user.id));

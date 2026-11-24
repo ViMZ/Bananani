@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { mealPlan, recipes, shoppingItems } from '$lib/server/db/schema';
-import { eq, and, asc, desc } from 'drizzle-orm';
+import { eq, and, asc, desc, isNull } from 'drizzle-orm';
 import { getRecipesForCards, getRecipeWithIngredients } from '$lib/server/recipes';
 import { mondayOf, todayISO, isValidISO, isPastDay, addWeeks, parseISO } from '$lib/date/week';
 import { effectiveServings, parseServings } from '$lib/ingredients/portions';
@@ -37,7 +37,7 @@ export async function load({ url, locals }) {
   const shoppingProbe = await db
     .select({ id: shoppingItems.id })
     .from(shoppingItems)
-    .where(eq(shoppingItems.userId, userId))
+    .where(and(eq(shoppingItems.userId, userId), isNull(shoppingItems.removedUntil)))
     .limit(1);
 
   return {

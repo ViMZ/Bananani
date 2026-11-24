@@ -17,12 +17,24 @@
     localStorage.setItem('shopping-view', mode);
   }
 
+  let expiredUntil = $state(0);
+  let visibleItems = $derived(data.items.filter((item) => !item.removedUntil || item.removedUntil > expiredUntil));
+  let hasActiveItems = $derived(visibleItems.some((item) => !item.removedUntil));
+
+  $effect(() => {
+    const deadlines = new Set(data.items.map((item) => item.removedUntil).filter(Boolean));
+    const timers = [...deadlines].map((deadline) => setTimeout(() => {
+      expiredUntil = Math.max(expiredUntil, deadline);
+    }, Math.max(0, deadline - data.now)));
+    return () => timers.forEach(clearTimeout);
+  });
+
   // Vue par recette : une entrée par recette ; les ajouts multiples sont fusionnés
   // et rendus explicites (« 2 pers × 2 », « 200 × 2 »).
-  let recipeGroups = $derived(groupByRecipe(data.items));
+  let recipeGroups = $derived(groupByRecipe(visibleItems));
 
   // Vue par ingrédient : agrégation + addition, groupée par rayon de magasin.
-  let byCategory = $derived(groupByCategory(aggregateItems(data.items)));
+  let byCategory = $derived(groupByCategory(aggregateItems(visibleItems)));
 
   // Ajout manuel : bouton → modale.
   let addModalOpen = $state(false);
@@ -32,57 +44,75 @@
   });
 </script>
 
-{#snippet shoppingItem({ ids, name, checked, quantity, recipeCount = 0 }, details)}
+{#snippet shoppingItem({ ids, name, checked, removedUntil, quantity, recipeCount = 0 }, details)}
   <li
-    class="flex items-start gap-2 rounded border border-l-4 px-2 py-1 transition-colors {checked
-      ? 'border-oliva/50 border-l-oliva bg-oliva-soft/60'
-      : 'border-umber/15 bg-panna hover:border-umber/30'}"
+    class="relative rounded border transition-colors {removedUntil
+      ? 'border-dashed border-terra/50 bg-panna'
+      : checked
+        ? 'border-l-4 border-oliva/50 border-l-oliva bg-oliva-soft/60'
+        : 'border-l-4 border-umber/15 bg-panna hover:border-umber/30'}"
   >
-    <form method="POST" action="?/remove" use:enhance class="shrink-0">
-      <input type="hidden" name="ids" value={ids.join(',')} />
-      <button class="flex h-11 w-7 items-center justify-center text-sepia transition-colors hover:text-terra" aria-label={`Exclure ${name} de la liste`}>
-        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
-        </svg>
-      </button>
-    </form>
-
-    <div class="min-w-0 flex-1 py-2.5">
-      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-        <span class="font-sans text-[15px] break-words min-w-0 {checked
-          ? 'font-medium text-umber/80 line-through decoration-2'
-          : 'font-semibold text-umber'}">{name}</span>
-        {#if quantity}
-          <span class="font-display text-base text-umber/80">{quantity}</span>
-        {/if}
-        {#if recipeCount > 1}
-          <span class="font-mono text-[10px] uppercase tracking-wider text-mare bg-mare-soft/30 rounded-full px-2 py-0.5">
-            ×{recipeCount} recettes
+    {#if removedUntil}
+      <form method="POST" action="?/undoRemove" use:enhance>
+        <input type="hidden" name="ids" value={ids.join(',')} />
+        <input type="hidden" name="removedUntil" value={removedUntil} />
+        <button
+          type="submit"
+          class="flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-3 rounded px-3 py-2 text-left text-sm text-umber hover:bg-sand/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-mare"
+          aria-label={`Annuler la suppression de ${name}`}
+        >
+          <span class="min-w-0 break-words">« {name} » a été supprimé</span>
+          <span class="shrink-0 font-semibold text-mare underline underline-offset-2">Annuler</span>
+        </button>
+      </form>
+    {:else}
+      <form method="POST" action="?/toggle" use:enhance>
+        <input type="hidden" name="ids" value={ids.join(',')} />
+        <input type="hidden" name="checked" value={checked ? '0' : '1'} />
+        <button
+          type="submit"
+          class="group flex w-full cursor-pointer items-start gap-2 rounded py-1 pl-11 pr-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-mare"
+          role="checkbox" aria-checked={checked} aria-label={`${name} dans le panier`}
+        >
+          <span class="min-w-0 flex-1 py-2.5">
+            <span class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              <span class="min-w-0 break-words font-sans text-[15px] font-semibold {checked
+                ? 'text-umber/80 line-through decoration-2'
+                : 'text-umber'}">{name}</span>
+              {#if quantity}
+                <span class="font-display text-base text-umber/80">{quantity}</span>
+              {/if}
+              {#if recipeCount > 1}
+                <span class="font-mono text-[10px] uppercase tracking-wider text-mare bg-mare-soft/30 rounded-full px-2 py-0.5">
+                  ×{recipeCount} recettes
+                </span>
+              {/if}
+            </span>
+            {@render details()}
           </span>
-        {/if}
-      </div>
-      {@render details()}
-    </div>
+          <span class="flex size-11 shrink-0 items-center justify-center" aria-hidden="true">
+            <span class="flex size-7 items-center justify-center rounded border-2 transition-colors {checked
+              ? 'border-[#566131] bg-[#566131] text-panna'
+              : 'border-umber/60 bg-panna group-hover:border-mare group-hover:bg-mare-soft/30'}">
+              {#if checked}
+                <svg class="size-4" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 6 L5 9 L10 3" />
+                </svg>
+              {/if}
+            </span>
+          </span>
+        </button>
+      </form>
 
-    <form method="POST" action="?/toggle" use:enhance class="shrink-0">
-      <input type="hidden" name="ids" value={ids.join(',')} />
-      <input type="hidden" name="checked" value={checked ? '0' : '1'} />
-      <button
-        type="submit"
-        class="group flex size-11 items-center justify-center rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-mare"
-        role="checkbox" aria-checked={checked} aria-label={`${name} dans le panier`}
-      >
-        <span class="flex size-7 items-center justify-center rounded border-2 transition-colors {checked
-          ? 'border-[#566131] bg-[#566131] text-panna'
-          : 'border-umber/60 bg-panna group-hover:border-mare group-hover:bg-mare-soft/30'}" aria-hidden="true">
-          {#if checked}
-            <svg class="size-4" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 6 L5 9 L10 3" />
-            </svg>
-          {/if}
-        </span>
-      </button>
-    </form>
+      <form method="POST" action="?/remove" use:enhance class="absolute left-2 top-1">
+        <input type="hidden" name="ids" value={ids.join(',')} />
+        <button type="submit" class="flex h-11 w-7 items-center justify-center text-sepia transition-colors hover:text-terra" aria-label={`Exclure ${name} de la liste`}>
+          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+          </svg>
+        </button>
+      </form>
+    {/if}
   </li>
 {/snippet}
 
@@ -113,7 +143,7 @@
       </svg>
     </a>
     <form method="POST" action="?/clearAll" use:enhance>
-      <button type="submit" class="btn-secondary size-8 p-0 text-terra disabled:opacity-50" aria-label="Vider la liste" title="Vider la liste" disabled={data.items.length === 0}>
+      <button type="submit" class="btn-secondary size-8 p-0 text-terra disabled:opacity-50" aria-label="Vider la liste" title="Vider la liste" disabled={!hasActiveItems}>
         <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6m4-6v6" />
         </svg>
@@ -122,7 +152,7 @@
   </div>
 </div>
 
-{#if data.items.length === 0}
+{#if visibleItems.length === 0}
   <div class="text-center py-16">
     <div class="flex justify-center mb-4 opacity-50">
       <Sprig width={120} />
@@ -145,21 +175,22 @@
           {#each groups as group (group.key)}
             {#snippet details()}
               {#if group.brand || group.productReference}
-                <div class="font-mono text-[10px] uppercase tracking-wider text-umber/75 mt-0.5">
+                <span class="block font-mono text-[10px] uppercase tracking-wider text-umber/75 mt-0.5">
                   {[group.brand, group.productReference].filter(Boolean).join(' · ')}
-                </div>
+                </span>
               {/if}
               {#if group.recipes.length > 0}
-                <div class="text-xs text-umber/75 italic mt-0.5">{group.recipes.join(', ')}</div>
+                <span class="block text-xs text-umber/75 italic mt-0.5">{group.recipes.join(', ')}</span>
               {/if}
               {#if group.notes.length > 0}
-                <div class="text-sm text-umber/75 italic mt-0.5">{group.notes.join(' · ')}</div>
+                <span class="block text-sm text-umber/75 italic mt-0.5">{group.notes.join(' · ')}</span>
               {/if}
             {/snippet}
             {@render shoppingItem({
               ids: group.ids,
               name: group.label,
               checked: group.checked,
+              removedUntil: group.removedUntil,
               quantity: group.subtotals.map((subtotal) => subtotal.display).join(' · '),
               recipeCount: group.recipes.length
             }, details)}
@@ -187,18 +218,19 @@
           {#each group.lines as line (line.ids.join(','))}
             {#snippet details()}
               {#if line.brand || line.productReference}
-                <div class="font-mono text-[10px] uppercase tracking-wider text-umber/75 mt-0.5">
+                <span class="block font-mono text-[10px] uppercase tracking-wider text-umber/75 mt-0.5">
                   {[line.brand, line.productReference].filter(Boolean).join(' · ')}
-                </div>
+                </span>
               {/if}
               {#if line.notes.length > 0}
-                <div class="text-sm text-umber/75 italic mt-0.5">{line.notes.join(' · ')}</div>
+                <span class="block text-sm text-umber/75 italic mt-0.5">{line.notes.join(' · ')}</span>
               {/if}
             {/snippet}
             {@render shoppingItem({
               ids: line.ids,
               name: line.name,
               checked: line.checked,
+              removedUntil: line.removedUntil,
               quantity: line.total ? line.display : ''
             }, details)}
           {/each}

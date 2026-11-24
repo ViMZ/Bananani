@@ -21,6 +21,7 @@ import { CATEGORIES, UNCATEGORIZED, categoryRank } from './categories.js';
  * @property {string} label          nom affiché (le plus fréquent du groupe)
  * @property {number[]} ids          ids des shopping_items couverts
  * @property {boolean} checked       true si toutes les lignes sont cochées
+ * @property {number|null} removedUntil échéance d'annulation pour les lignes supprimées
  * @property {string[]} recipes      titres de recettes sources (distincts)
  * @property {string} brand          marque si homogène, sinon ''
  * @property {string} productReference  référence si homogène, sinon ''
@@ -38,8 +39,9 @@ export function aggregateItems(items) {
   const groups = new Map();
 
   for (const item of items) {
-    const key =
+    const ingredientKey =
       item.canonicalId != null ? `c:${item.canonicalId}` : `n:${normalizeName(item.name)}`;
+    const key = JSON.stringify([ingredientKey, item.removedUntil ?? null]);
 
     let g = groups.get(key);
     if (!g) {
@@ -53,6 +55,7 @@ export function aggregateItems(items) {
         notes: new Set(),
         category: '',
         allChecked: true,
+        removedUntil: item.removedUntil ?? null,
         // famille -> { total dans l'unité de base, unité d'origine à afficher }
         families: new Map()
       };
@@ -102,6 +105,7 @@ export function aggregateItems(items) {
       label,
       ids: g.ids,
       checked: g.allChecked,
+      removedUntil: g.removedUntil,
       category: g.category || UNCATEGORIZED,
       recipes: [...g.recipes],
       brand: g.brands.size === 1 ? [...g.brands][0] : '',
@@ -111,13 +115,7 @@ export function aggregateItems(items) {
     });
   }
 
-  // Items non cochés d'abord, puis tri alphabétique sur le libellé.
-  result.sort((a, b) => {
-    if (a.checked !== b.checked) return a.checked ? 1 : -1;
-    return a.label.localeCompare(b.label, 'fr');
-  });
-
-  return result;
+  return result.sort((a, b) => a.label.localeCompare(b.label, 'fr'));
 }
 
 /**

@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { shoppingItems, ingredientCatalog, recipes } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 
 export async function load({ url, locals }) {
   const view = url.searchParams.get('view') === 'recipe' ? 'recipe' : 'ingredient';
@@ -13,7 +13,7 @@ export async function load({ url, locals }) {
     .from(shoppingItems)
     .leftJoin(ingredientCatalog, eq(shoppingItems.canonicalId, ingredientCatalog.id))
     .leftJoin(recipes, eq(shoppingItems.recipeId, recipes.id))
-    .where(and(eq(shoppingItems.userId, locals.user.id), eq(shoppingItems.checked, false)))
+    .where(and(eq(shoppingItems.userId, locals.user.id), eq(shoppingItems.checked, false), isNull(shoppingItems.removedUntil)))
     .orderBy(shoppingItems.addedAt);
   const items = rows.map((r) => ({
     ...r.item,

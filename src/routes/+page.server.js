@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { recipes, shoppingItems } from '$lib/server/db/schema';
-import { desc, eq, and } from 'drizzle-orm';
+import { desc, eq, and, isNull } from 'drizzle-orm';
 
 export async function load({ locals }) {
   const userId = locals.user.id;
@@ -13,7 +13,7 @@ export async function load({ locals }) {
   const pendingCount = await db
     .select()
     .from(shoppingItems)
-    .where(and(eq(shoppingItems.userId, userId), eq(shoppingItems.checked, false)));
+    .where(and(eq(shoppingItems.userId, userId), eq(shoppingItems.checked, false), isNull(shoppingItems.removedUntil)));
 
   return {
     recent,

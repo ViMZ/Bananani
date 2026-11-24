@@ -71,6 +71,7 @@ export const shoppingItems = sqliteTable('shopping_items', {
   checked: integer('checked', { mode: 'boolean' }).default(false),
   batchId: text('batch_id'),
   servings: integer('servings'),
+  removedUntil: integer('removed_until'),
   addedAt: text('added_at').default(sql`(CURRENT_TIMESTAMP)`).notNull()
 });
 
