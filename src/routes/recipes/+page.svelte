@@ -1,4 +1,5 @@
 <script>
+  import PageTitle from '$lib/components/PageTitle.svelte';
   import Sprig from '$lib/components/Sprig.svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import { goto } from '$app/navigation';
@@ -63,7 +64,7 @@
 <header class="mb-10 text-center md:text-left md:flex md:items-end md:justify-between gap-4">
   <div>
     <div class="h-eyebrow mb-2">Il Ricettario</div>
-    <h1 class="h-display text-5xl md:text-6xl italic">Recettes</h1>
+    <PageTitle title="Recettes" size="text-5xl md:text-6xl" />
     <p class="text-sepia mt-2 italic">
       {data.recipes.length} recette{data.recipes.length > 1 ? 's' : ''} dans la collection
     </p>

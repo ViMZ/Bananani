@@ -6,6 +6,7 @@ declare global {
         id: number;
         username: string;
         displayName: string;
+        favoriteTab: string | null;
       };
       admin?: boolean;
     }

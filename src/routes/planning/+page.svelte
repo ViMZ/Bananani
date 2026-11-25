@@ -3,6 +3,7 @@
   import { flip } from 'svelte/animate';
   import { invalidateAll, goto } from '$app/navigation';
   import { deserialize } from '$app/forms';
+  import PageTitle from '$lib/components/PageTitle.svelte';
   import RecipeMiniCard from '$lib/components/RecipeMiniCard.svelte';
   import { weekDays, addWeeks, mondayOf, parseISO } from '$lib/date/week';
 
@@ -230,7 +231,7 @@
 <div class="max-w-2xl mx-auto pb-28">
   <header class="mb-6">
     <div class="h-eyebrow mb-1">Menu de la semaine</div>
-    <h1 class="h-display text-4xl md:text-5xl italic">Settimana</h1>
+    <PageTitle title="Settimana" size="text-4xl md:text-5xl" />
   </header>
   <p class="text-sm text-sepia mb-4">Choisis le nombre de personnes pour chaque repas. Les quantités de courses s’adaptent et s’additionnent pour une même recette.</p>
   {#if planError}<p role="alert" class="text-terra mb-4">{planError}</p>{/if}

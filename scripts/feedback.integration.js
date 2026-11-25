@@ -55,6 +55,40 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
     const get = (path, auth = cookie) => fetch(`${origin}${path}`, { headers: { Cookie: auth } });
     const post = (path, fields, auth = cookie) => fetch(`${origin}${path}`, { method: 'POST', redirect: 'manual', headers: { Cookie: auth, Origin: origin, Accept: 'text/html' }, body: form(fields) });
 
+    await t.test('opens each account on its favorite tab and keeps explicit links', async () => {
+      const landing = async (auth) => {
+        const response = await fetch(origin, { redirect: 'manual', headers: { Cookie: auth } });
+        assert.equal(response.status, 303);
+        return response.headers.get('location');
+      };
+      const favorite = (tab, intent, extra = {}) => post('/?/favorite', { tab, intent, ...extra });
+
+      assert.equal(await landing(''), '/login');
+      assert.equal(await landing(cookie), '/recipes');
+      assert.match(await (await get('/planning')).text(), /aria-label="Ouvrir Settimana au démarrage" aria-pressed="false"/);
+
+      const set = await favorite('/planning', 'set', { search: '?week=2026-11-23' });
+      assert.equal(set.status, 303);
+      assert.equal(set.headers.get('location'), '/planning?week=2026-11-23');
+      assert.equal(await landing(await login('feedback')), '/planning');
+      assert.equal(await landing(otherCookie), '/recipes');
+      assert.equal((await get('/scan')).url, origin + '/scan');
+      assert.match(await (await get('/planning')).text(), /aria-label="Ouvrir Settimana au démarrage" aria-pressed="true"/);
+
+      const enhanced = await fetch(`${origin}/?/favorite`, {
+        method: 'POST',
+        headers: { Cookie: cookie, Origin: origin, Accept: 'application/json', 'x-sveltekit-action': 'true' },
+        body: form({ tab: '/shopping', intent: 'set' })
+      });
+      assert.deepEqual(await enhanced.json(), { type: 'redirect', status: 303, location: '/shopping' });
+      assert.match(await (await get('/planning')).text(), /aria-label="Ouvrir Settimana au démarrage" aria-pressed="false"/);
+      assert.equal((await favorite('/planning', 'clear')).status, 303);
+      assert.equal((await favorite('/recipes/new', 'set')).status, 400);
+      assert.equal(await landing(cookie), '/shopping');
+      assert.equal((await favorite('/shopping', 'clear')).status, 303);
+      assert.equal(await landing(cookie), '/recipes');
+    });
+
     let recipeId;
     await t.test('creates, reorders, reloads and uploads a dish photo', async () => {
       const response = await post('/recipes/new', { title: 'Pâtes au saumon', servings: 4,

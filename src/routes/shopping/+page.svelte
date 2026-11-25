@@ -1,5 +1,6 @@
 <script>
   import { enhance } from '$app/forms';
+  import PageTitle from '$lib/components/PageTitle.svelte';
   import Sprig from '$lib/components/Sprig.svelte';
   import { groupShoppingByCategory } from '$lib/ingredients/aggregate';
   import { groupByRecipe } from '$lib/ingredients/byRecipe';
@@ -110,7 +111,7 @@
   </li>
 {/snippet}
 
-<h1 class="h-display text-center text-3xl italic md:text-4xl">Courses</h1>
+<PageTitle title="Courses" size="text-3xl md:text-4xl" class="text-center" />
 
 <div class="no-print sticky top-[var(--app-header-height)] z-20 -mx-4 mb-2 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 border-b border-umber/15 bg-linen px-2 py-1 md:-mx-8 md:px-8">
   <div class="inline-flex rounded-full border border-umber/20 bg-panna p-0.5 text-xs font-medium" role="group" aria-label="Regrouper les courses">

@@ -135,3 +135,4 @@ addColumnIfMissing('shopping_items', 'is_household', 'INTEGER NOT NULL DEFAULT 0
 addColumnIfMissing('shopping_items', 'archived_at', 'INTEGER');
 addColumnIfMissing('recipes', 'photo_credit', "TEXT DEFAULT ''");
 addColumnIfMissing('recipes', 'photo_source', "TEXT DEFAULT ''");
+addColumnIfMissing('users', 'favorite_tab', 'TEXT');

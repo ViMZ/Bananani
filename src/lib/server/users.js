@@ -1,6 +1,6 @@
 import { db } from './db/index.js';
 import { users } from './db/schema.js';
-import { eq, asc } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 /**
  * Accès aux comptes utilisateurs. Volontairement sans hachage ici : le hachage
@@ -59,6 +59,14 @@ export async function updatePasswordHash(username, passwordHash) {
   if (!user) return false;
   await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
   return true;
+}
+
+/** @param {number} userId @param {string} tab @param {boolean} enabled */
+export async function setFavoriteTab(userId, tab, enabled) {
+  const account = eq(users.id, userId);
+  await db.update(users)
+    .set({ favoriteTab: enabled ? tab : null })
+    .where(enabled ? account : and(account, eq(users.favoriteTab, tab)));
 }
 
 /**

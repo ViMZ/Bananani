@@ -1,5 +1,6 @@
 <script>
   import { enhance } from '$app/forms';
+  import PageTitle from '$lib/components/PageTitle.svelte';
   import { withUndoWindow } from '$lib/ingredients/shopping-items.svelte.js';
   import { formatQuantity, resolveUnit } from '$lib/ingredients/units';
 
@@ -95,7 +96,7 @@
 {/snippet}
 
 <div class="mx-auto max-w-2xl space-y-7">
-  <h1 class="h-display text-center text-3xl italic md:text-4xl">Maison</h1>
+  <PageTitle title="Maison" size="text-3xl md:text-4xl" class="text-center" />
 
   <form method="POST" action="?/add" class="card grid grid-cols-2 gap-3 sm:grid-cols-4"
     use:enhance={({ cancel, formElement }) => {

@@ -3,6 +3,7 @@
   import { onDestroy } from 'svelte';
   import { deserialize } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
+  import PageTitle from '$lib/components/PageTitle.svelte';
   import Sprig from '$lib/components/Sprig.svelte';
 
   let videoEl;
@@ -199,7 +200,7 @@
 
 <header class="text-center mb-12">
   <div class="h-eyebrow mb-2">Capture</div>
-  <h1 class="h-display text-5xl md:text-6xl italic">Scanner</h1>
+  <PageTitle title="Scanner" size="text-5xl md:text-6xl" />
   <p class="text-sepia italic mt-2">
     Scanne le code d’une fiche Bananani pour retrouver la recette et ajouter ses ingrédients aux courses.
   </p>

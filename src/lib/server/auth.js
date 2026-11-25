@@ -108,7 +108,7 @@ export function createSession(user) {
 /**
  * Vérifie un cookie de session. Renvoie l'utilisateur (public) si valide, null sinon.
  * @param {string | undefined | null} cookie
- * @returns {Promise<{ id: number, username: string, displayName: string } | null>}
+ * @returns {Promise<{ id: number, username: string, displayName: string, favoriteTab: string | null } | null>}
  */
 export async function verifySession(cookie) {
   if (!cookie) return null;
@@ -127,7 +127,12 @@ export async function verifySession(cookie) {
   if (mac.length !== expected.length) return null;
   if (!timingSafeEqual(Buffer.from(mac, 'hex'), Buffer.from(expected, 'hex'))) return null;
 
-  return { id: user.id, username: user.username, displayName: user.displayName ?? '' };
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName ?? '',
+    favoriteTab: user.favoriteTab
+  };
 }
 
 // --- Back-office admin ---------------------------------------------------

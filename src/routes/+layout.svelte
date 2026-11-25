@@ -3,6 +3,7 @@
   import { afterNavigate } from '$app/navigation';
   import { navigating } from '$app/state';
   import { page } from '$app/stores';
+  import { APP_TABS } from '$lib/navigation';
 
   let { children, data } = $props();
 
@@ -30,15 +31,6 @@
       if (navigating.to?.url.href === href) window.location.assign(href);
     }, 5000);
   }
-
-  const nav = [
-    { href: '/', label: 'Accueil' },
-    { href: '/recipes', label: 'Ricettario' },
-    { href: '/planning', label: 'Semaine' },
-    { href: '/scan', label: 'Scanner' },
-    { href: '/maison', label: 'Maison' },
-    { href: '/shopping', label: 'Courses' }
-  ];
 
   let adminTimer;
   let openedAdmin = false;
@@ -79,8 +71,8 @@
   }
 
   function isActive(href) {
-    if (href === '/') return $page.url.pathname === '/';
-    return $page.url.pathname.startsWith(href);
+    const path = $page.url.pathname;
+    return path === href || path.startsWith(href + '/');
   }
 
   // Pages "auth" et back-office : pas de nav applicative, juste le contenu.
@@ -88,6 +80,12 @@
     $page.url.pathname === '/login' || $page.url.pathname.startsWith('/admin')
   );
 </script>
+
+{#snippet tabIcon(path, size)}
+  <svg class="shrink-0 {size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d={path} />
+  </svg>
+{/snippet}
 
 <div class="app-shell min-h-screen flex flex-col {isAuthPage ? '' : 'pb-20 md:pb-0'}" style:--app-header-height={`${headerHeight}px`}>
   {#if !isAuthPage}
@@ -98,7 +96,7 @@
           type="button"
           class="group inline-flex items-center gap-2 bg-transparent border-0 p-0 text-left select-none"
           style="-webkit-touch-callout: none;"
-          aria-label="Bananani — Accueil"
+          aria-label="Bananani — Ouvrir la page de démarrage"
           onpointerdown={onLogoPointerDown}
           onpointerup={cancelAdminTimer}
           onpointercancel={cancelAdminTimer}
@@ -115,15 +113,17 @@
         </button>
 
         <!-- Nav desktop -->
-        <nav class="hidden md:flex items-center gap-7">
-          {#each nav as item}
+        <nav aria-label="Navigation principale" class="hidden items-center gap-4 md:flex lg:gap-7">
+          {#each APP_TABS as item (item.href)}
             <a
               href={item.href}
-              class="font-sans text-sm transition-colors relative
+              aria-current={isActive(item.href) ? 'page' : undefined}
+              class="relative flex items-center gap-1.5 font-sans text-sm transition-colors
                      {isActive(item.href)
                        ? 'text-umber font-medium'
                        : 'text-sepia hover:text-umber'}"
             >
+              {@render tabIcon(item.icon, 'h-4 w-4')}
               {item.label}
               {#if isActive(item.href)}
                 <span class="absolute -bottom-1.5 left-0 right-0 h-px bg-mare"></span>
@@ -158,20 +158,17 @@
 
   {#if !isAuthPage}
     <!-- Bottom nav mobile -->
-    <nav class="no-print md:hidden fixed bottom-0 inset-x-0 z-30 bg-panna/95 backdrop-blur border-t border-umber/15">
-      <div class="grid grid-cols-6">
-        {#each nav as item}
+    <nav aria-label="Navigation principale" class="no-print md:hidden fixed bottom-0 inset-x-0 z-30 bg-panna/95 backdrop-blur border-t border-umber/15">
+      <div class="grid grid-cols-5">
+        {#each APP_TABS as item (item.href)}
           <a
             href={item.href}
+            aria-current={isActive(item.href) ? 'page' : undefined}
             onclick={onMobileNavClick}
-            class="flex flex-col items-center justify-center py-3 font-sans text-[11px] tracking-wide transition-colors
-                   {isActive(item.href) ? 'text-mare font-medium' : 'text-sepia'}"
+            class="flex flex-col items-center justify-center gap-1 rounded-md py-2.5 font-sans text-[11px] tracking-wide transition-colors
+                   {isActive(item.href) ? 'bg-mare/5 text-mare font-medium' : 'text-sepia'}"
           >
-            {#if isActive(item.href)}
-              <span class="text-mare text-xs leading-none mb-1">✦</span>
-            {:else}
-              <span class="text-sepia opacity-40 text-xs leading-none mb-1" aria-hidden="true">✦</span>
-            {/if}
+            {@render tabIcon(item.icon, 'h-5 w-5')}
             {item.label}
           </a>
         {/each}
