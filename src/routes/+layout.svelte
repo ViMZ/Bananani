@@ -106,7 +106,7 @@
           onclick={onLogoClick}
           onkeydown={onLogoKeydown}
         >
-          <img src="/bananani-mascot.webp?v=3" alt="" width="48" height="48" class="shrink-0 pointer-events-none" draggable="false" />
+          <img src="/bananani-mascot.webp?v=4" alt="" width="48" height="48" class="shrink-0 pointer-events-none" draggable="false" />
           <span class="font-display italic text-3xl md:text-[28px] leading-none text-umber tracking-tight">
             Bananani
           </span>
