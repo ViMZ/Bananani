@@ -239,9 +239,8 @@ Le site est une PWA : on peut l'installer sur l'écran d'accueil (plein écran, 
 barre de navigateur).
 
 - Manifest : [`static/manifest.webmanifest`](./static/manifest.webmanifest) (`display: standalone`).
-- Icônes : `static/icon.svg` (source), `icon-192.png`, `icon-512.png`,
-  `apple-touch-icon.png`, `favicon.ico`. Régénérables depuis le SVG avec
-  `rsvg-convert` (tailles) + `magick`/`convert` (pour le `.ico`).
+- Les icônes d’installation se trouvent dans [`static/pwa/`](./static/pwa/).
+  Le favicon utilise `static/favicon-3d.png` et `static/favicon.ico`.
 - Balises dans [`src/app.html`](./src/app.html) (`manifest`, `apple-touch-icon`,
   meta web-app).
 - **Installer sur Android/Chrome** : ouvrir l'URL → menu ⋮ → « Installer l'application ».
