@@ -339,20 +339,24 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       const maison = async (auth) => (await get('/maison', auth)).text();
       const shopping = async () => (await get('/shopping')).text();
       const print = async (view) => (await get(`/shopping/print?view=${view}`)).text();
+      const assertInShopping = async (name, checked) => {
+        assert.ok((await maison()).includes(`aria-checked="${checked}" aria-label="${name} dans la liste de courses"`), name);
+      };
 
       assert.equal((await post('/maison?/add', { name: ' ' })).status, 400);
       assert.equal((await post('/maison?/add', { name: 'Lessive', quantity: '-1' })).status, 400);
       assert.equal((await post('/maison?/add', { name: ' Lessive ', quantity: '1,5', unit: 'L' })).status, 303);
       const { id } = household.get('Lessive');
-      assert.match(await maison(), /À acheter[\s\S]*Lessive[\s\S]*1,5 l/);
+      assert.match(await maison(), /Lessive<\/span>[\s\S]*1,5 l/);
+      await assertInShopping('Lessive', true);
       assert.match(await shopping(), /<h2[^>]*>Maison<\/h2>[\s\S]*Lessive dans le panier/);
       for (const view of ['ingredient', 'recipe']) {
         assert.match(await print(view), /<h2[^>]*>Maison<\/h2>[\s\S]*Lessive<\/span>/);
       }
 
-      assert.doesNotMatch(await maison(otherCookie), /Marquer Lessive comme acheté/);
+      assert.doesNotMatch(await maison(otherCookie), /Lessive dans la liste de courses/);
       assert.equal((await post('/maison?/edit', { id, name: 'Inaccessible' }, otherCookie)).status, 404);
-      await post('/maison?/toggle', { id, checked: 1 }, otherCookie);
+      await post('/maison?/setInShopping', { id, inShopping: 0 }, otherCookie);
       await post('/maison?/remove', { id }, otherCookie);
       assert.equal(read.get(id).checked, 0);
       assert.equal(read.get(id).removed_until, null);
@@ -360,27 +364,38 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       assert.match(await shopping(), /Lessive dans le panier[\s\S]*2 l/);
 
       await post('/shopping?/toggle', { id, checked: 1 });
-      assert.match(await maison(), /<h2[^>]*>Achetés<\/h2>[\s\S]*Racheter Lessive/);
+      await assertInShopping('Lessive', false);
       assert.doesNotMatch(await print('recipe'), /Lessive<\/span>/);
+      await post('/shopping?/toggle', { id, checked: 0 });
+      await assertInShopping('Lessive', true);
+      await post('/shopping?/toggle', { id, checked: 1 });
       await post('/maison?/add', { name: 'Papier toilette' });
       await post('/shopping?/clearAll', { confirmed: 1 });
       assert.match(await shopping(), /Papier toilette dans le panier/);
       assert.doesNotMatch(await shopping(), /Lessive dans le panier/);
       assert.ok(read.get(id).archived_at);
-      assert.match(await maison(), /Racheter Lessive/);
-      await post('/maison?/toggle', { id, checked: 0 });
-      await post('/maison?/toggle', { id, checked: 0 });
+      await assertInShopping('Lessive', false);
+      await post('/maison?/setInShopping', { id, inShopping: 1 });
+      await post('/maison?/setInShopping', { id, inShopping: 1 });
       assert.equal(read.get(id).archived_at, null);
       assert.equal(read.get(id).quantity, 2);
       assert.equal(household.all('Lessive').length, 1);
       assert.match(await print('ingredient'), /Lessive<\/span>/);
 
+      await post('/maison?/setInShopping', { id, inShopping: 0 });
+      await assertInShopping('Lessive', false);
+      assert.doesNotMatch(await shopping(), /Lessive dans le panier/);
+      assert.doesNotMatch(await print('ingredient'), /Lessive<\/span>/);
+      assert.equal(read.get(id).removed_until, null);
+      await post('/maison?/setInShopping', { id, inShopping: 1 });
+      await assertInShopping('Lessive', true);
+
       await post('/maison?/add', { name: 'Œufs', quantity: 2, unit: 'pièce' });
       const eggs = household.get('Œufs').id;
-      await post('/maison?/toggle', { id, checked: 1 });
+      await post('/shopping?/toggle', { id, checked: 1 });
       assert.equal((await post('/planning?/generate', { weekStart: '2099-01-05', mode: 'replace' })).status, 303);
       assert.ok(read.get(id).archived_at);
-      assert.match(await maison(), /Racheter Lessive/);
+      await assertInShopping('Lessive', false);
       assert.match(await shopping(), /Papier toilette dans le panier/);
       assert.equal((await shopping()).match(/Œufs dans le panier/g).length, 2);
       await post('/shopping?/toggle', { id: eggs, checked: 1 });
@@ -393,15 +408,15 @@ test('recipe, planning, shopping and tenant isolation through HTTP', { timeout: 
       await post('/shopping?/undoRemove', { id: eggs, removedUntil }, otherCookie);
       assert.equal(read.get(eggs).removed_until, removedUntil);
       await post('/shopping?/undoRemove', { id: eggs, removedUntil });
-      assert.match(await maison(), /Racheter Œufs/);
+      await assertInShopping('Œufs', false);
       await post('/shopping?/remove', { id: eggs });
       await post('/maison?/undoRemove', { id: eggs, removedUntil: read.get(eggs).removed_until });
-      assert.match(await maison(), /Racheter Œufs/);
+      await assertInShopping('Œufs', false);
       await post('/shopping?/remove', { id: eggs });
       const expired = Date.now() - 1;
       db.$client.prepare('UPDATE shopping_items SET removed_until = ? WHERE id = ?').run(expired, eggs);
       await post('/maison?/undoRemove', { id: eggs, removedUntil: expired });
-      assert.doesNotMatch(await maison(), /Racheter Œufs|Annuler la suppression de Œufs/);
+      assert.doesNotMatch(await maison(), /Œufs dans la liste de courses|Annuler la suppression de Œufs/);
       assert.equal(read.get(eggs), undefined);
       assert.match(await shopping(), /Œufs dans le panier/);
     });

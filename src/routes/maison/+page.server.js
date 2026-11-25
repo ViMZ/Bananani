@@ -8,6 +8,8 @@ function householdItems(userId) {
   return and(eq(shoppingItems.userId, userId), eq(shoppingItems.isHousehold, true));
 }
 
+const { remove, undoRemove } = shoppingItemActions({ householdOnly: true });
+
 export function load({ locals }) {
   const now = Date.now();
   deleteExpiredShoppingItems(locals.user.id, now);
@@ -32,7 +34,18 @@ function readItem(formData) {
 }
 
 export const actions = {
-  ...shoppingItemActions({ householdOnly: true }),
+  remove,
+  undoRemove,
+  setInShopping: async ({ request, locals }) => {
+    const formData = await request.formData();
+    const id = Number(formData.get('id'));
+    const inShopping = formData.get('inShopping');
+    if (!Number.isSafeInteger(id) || id <= 0 || (inShopping !== '0' && inShopping !== '1')) return fail(400);
+    db.update(shoppingItems)
+      .set(inShopping === '1' ? { checked: false, archivedAt: null } : { checked: true, archivedAt: Date.now() })
+      .where(and(householdItems(locals.user.id), eq(shoppingItems.id, id), isNull(shoppingItems.removedUntil)))
+      .run();
+  },
   add: async ({ request, locals }) => {
     const { values, item, error } = readItem(await request.formData());
     if (error) return fail(400, { values, error });

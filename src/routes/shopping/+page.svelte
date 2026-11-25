@@ -148,7 +148,7 @@
 <dialog bind:this={clearDialog} class="card no-print m-auto w-[calc(100%-2rem)] max-w-md backdrop:bg-umber/50" aria-labelledby="clear-title" aria-describedby="clear-description">
   <h2 id="clear-title" class="font-display italic text-2xl text-umber">Vider la liste de courses ?</h2>
   <p id="clear-description" class="mt-2 text-sm text-sepia">
-    Les articles Maison à acheter restent dans Courses. Les articles Maison cochés restent disponibles dans Maison, sous « Achetés ».
+    Les articles Maison à acheter restent dans Courses. Ceux déjà cochés dans Courses restent disponibles dans Maison.
     Les autres articles de Courses seront supprimés.
   </p>
   <form method="POST" action="?/clearAll" use:enhance={() => { clearDialog.close(); }} class="mt-5 flex flex-wrap justify-end gap-2">
