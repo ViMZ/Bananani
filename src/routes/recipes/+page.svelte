@@ -34,28 +34,28 @@
 </script>
 
 {#snippet card(r)}
-  <div class="h-full flex flex-col bg-panna rounded-card overflow-hidden border border-umber/15 shadow-card group-hover:shadow-soft-lg transition-all duration-200 group-hover:-translate-y-0.5">
+  <div class="relative flex aspect-square flex-col justify-end rounded-card overflow-hidden border border-umber/15 bg-sand shadow-card group-hover:shadow-soft-lg transition-all duration-200 group-hover:-translate-y-0.5">
     {#if r.photoPath}
-      <img src={r.photoPath} alt={r.title} class="w-full aspect-[4/3] object-cover" />
+      <img src={r.photoPath} alt="" loading="lazy" class="absolute inset-0 h-full w-full object-cover" />
     {:else}
-      <div class="w-full aspect-[4/3] bg-sand flex items-center justify-center">
-        <span class="font-display italic text-5xl text-sepia">N°</span>
-      </div>
+      <span aria-hidden="true" class="absolute left-2 top-2 font-display italic text-3xl text-sepia/50 sm:left-4 sm:top-4 sm:text-5xl">N°</span>
     {/if}
-    <div class="p-5 flex-1 flex flex-col">
-      <h3 class="h-display text-2xl leading-tight text-balance">{r.title}</h3>
+    <div class="relative p-2.5 sm:p-4 {r.photoPath
+      ? 'bg-gradient-to-t from-black/90 to-black/70 text-panna before:absolute before:inset-x-0 before:bottom-full before:h-5 before:bg-gradient-to-t before:from-black/70 before:to-transparent'
+      : 'text-umber'}">
+      <h3 class="h-display text-lg leading-tight break-words line-clamp-2 sm:text-2xl">{r.title}</h3>
       {#if r.description}
-        <p class="text-sm text-sepia italic mt-1 line-clamp-1">{r.description}</p>
+        <p class="hidden text-sm italic mt-0.5 sm:line-clamp-1">{r.description}</p>
       {/if}
       {#if r.owner}
-        <p class="font-display italic text-mare text-sm mt-1">de {r.owner}</p>
+        <p class="hidden font-display italic text-sm mt-0.5 truncate sm:block">de {r.owner}</p>
       {/if}
-      <div class="mt-auto pt-3 flex items-center justify-between">
-        <span class="codice flex items-center gap-1.5">
-          <span class="text-limone">✦</span>
+      <div class="mt-1.5 flex items-center justify-between gap-1 sm:mt-2">
+        <span class="flex items-center gap-1 whitespace-nowrap font-mono text-[10px] tracking-wide sm:text-xs">
+          <span class="text-limone" aria-hidden="true">✦</span>
           {r.code}
         </span>
-        <span class="text-mare text-sm group-hover:translate-x-1 transition-transform">→</span>
+        <span class="text-sm group-hover:translate-x-1 transition-transform" aria-hidden="true">→</span>
       </div>
     </div>
   </div>
@@ -121,7 +121,7 @@
     {/if}
   </div>
 {:else}
-  <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+  <div class="mx-auto grid max-w-2xl grid-cols-2 gap-3 sm:gap-5">
     {#each filtered as r}
       {#if selectMode}
         <button
