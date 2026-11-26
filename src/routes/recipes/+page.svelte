@@ -40,23 +40,12 @@
     {:else}
       <span aria-hidden="true" class="absolute left-2 top-2 font-display italic text-3xl text-sepia/50 sm:left-4 sm:top-4 sm:text-5xl">N°</span>
     {/if}
-    <div class="relative p-2.5 sm:p-4 {r.photoPath
-      ? 'bg-gradient-to-t from-black/90 to-black/70 text-panna before:absolute before:inset-x-0 before:bottom-full before:h-5 before:bg-gradient-to-t before:from-black/70 before:to-transparent'
-      : 'text-umber'}">
-      <h3 class="h-display text-lg leading-tight break-words line-clamp-2 sm:text-2xl">{r.title}</h3>
-      {#if r.description}
-        <p class="hidden text-sm italic mt-0.5 sm:line-clamp-1">{r.description}</p>
-      {/if}
-      {#if r.owner}
-        <p class="hidden font-display italic text-sm mt-0.5 truncate sm:block">de {r.owner}</p>
-      {/if}
-      <div class="mt-1.5 flex items-center justify-between gap-1 sm:mt-2">
-        <span class="flex items-center gap-1 whitespace-nowrap font-mono text-[10px] tracking-wide sm:text-xs">
-          <span class="text-limone" aria-hidden="true">✦</span>
-          {r.code}
-        </span>
-        <span class="text-sm group-hover:translate-x-1 transition-transform" aria-hidden="true">→</span>
-      </div>
+    <div class="relative px-2.5 pb-2 sm:px-4 sm:pb-3 {r.photoPath ? 'text-panna' : 'text-umber'}">
+      <h3 class="h-display line-clamp-2 break-words text-base leading-tight sm:text-xl {r.photoPath
+        ? '[text-shadow:0_1px_4px_rgb(0_0_0/0.9),0_1px_12px_rgb(0_0_0/0.65)]'
+        : ''}">
+        {r.title}
+      </h3>
     </div>
   </div>
 {/snippet}
